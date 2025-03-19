@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y nano \
     libssl-dev \
     libffi-dev \
     python3-setuptools \
-    git && \
-    libgl1 \
+    git \
+    libgl1 && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
