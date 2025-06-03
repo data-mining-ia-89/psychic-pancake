@@ -2,55 +2,87 @@ version: "3.8"
 
 services:
   namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    build:
+      context: ./hadoop-namenode
     container_name: namenode
-    restart: always
-    environment:
-      - CLUSTER_NAME=hadoop-cluster2
+    hostname: namenode
     ports:
-      - "9870:9870"   # Interface web HDFS
-      - "9000:9000"   # Port RPC HDFS
+      - "9870:9870"   # Web UI HDFS
+      - "9000:9000"   # RPC Hadoop
+      - "2222:22"     # SSH
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
     networks:
       - hadoop-net
+    restart: always
 
   datanode1:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    build:
+      context: ./hadoop-datanode
     container_name: datanode1
-    restart: always
-    environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    hostname: datanode1
+    ports:
+      - "9864:9864"   # Web UI DataNode
+    #  - "50075:50075" # Service DataNode
+      - "2223:22"     # SSH
     volumes:
       - hadoop_datanode1:/hadoop/dfs/data
     networks:
       - hadoop-net
     depends_on:
       - namenode
+    restart: always
 
   datanode2:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    build:
+      context: ./hadoop-datanode
     container_name: datanode2
-    restart: always
-    environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    hostname: datanode2
+    ports:
+      - "9865:9864"
+    #  - "50076:50075"
+      - "2224:22"
     volumes:
       - hadoop_datanode2:/hadoop/dfs/data
     networks:
       - hadoop-net
     depends_on:
       - namenode
+    restart: always
 
   yolo-api:
     build:
-      context: ./yolo-api  # Assurez-vous que le Dockerfile est dans ce dossier
-      dockerfile: Dockerfile
+      context: ./yolo-api
     container_name: yolo-api
-    restart: always
+    hostname: yolo-api
     ports:
       - "8000:8000"
     volumes:
-      - ./datasets/images:/app/images  # Monte le dossier images dans le conteneur
+      - ./datasets/images:/app/images  # facultatif si tu as des images
+    networks:
+      - hadoop-net
+    depends_on:
+      - namenode
+  
+  data-loader:
+    build:
+      context: ./data-loader
+    container_name: data-loader
+    hostname: data-loader
+    networks:
+      - hadoop-net
+    depends_on:
+      - namenode
+    restart: "no"  # il s'exécute une fois, puis s'arrête
+
+  hbase-master:
+    image: harisekhon/hbase
+    container_name: hbase-master
+    hostname: hbase-master
+    ports:
+      - "16010:16010"  # Web UI HBase Master
+    environment:
+      - HBASE_MANAGES_ZK=true
     networks:
       - hadoop-net
     depends_on:

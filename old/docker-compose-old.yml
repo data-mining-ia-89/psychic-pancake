@@ -1,0 +1,94 @@
+version: "3.8"
+
+services:
+  namenode:
+    user: root
+    build:
+      context: ./hadoop-namenode
+      dockerfile: Dockerfile
+    container_name: namenode
+    hostname: namenode
+    restart: always
+    environment:
+      - CLUSTER_NAME=hadoop-cluster
+      - HDFS_NAMENODE_USER=hadoop
+    ports:
+      - "9870:9870"   # Interface web HDFS
+      - "9000:9000"   # Port RPC HDFS
+      - "22:22"       # Port SSH
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    networks:
+      hadoop-net:
+        aliases:
+          - namenode
+    command: ["/usr/local/hadoop/bin/hdfs", "namenode"]
+
+  datanode1:
+    user: root
+    build:
+      context: ./hadoop-datanode
+      dockerfile: Dockerfile
+    container_name: datanode1
+    hostname: datanode1
+    restart: always
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - HDFS_DATANODE_USER=hadoop
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+    networks:
+      hadoop-net:
+        aliases:
+          - datanode1
+    depends_on:
+      - namenode
+    command: ["/usr/local/hadoop/bin/hdfs", "datanode"]
+
+  datanode2:
+    user: root
+    build:
+      context: ./hadoop-datanode
+      dockerfile: Dockerfile
+    container_name: datanode2
+    hostname: datanode2
+    restart: always
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - HDFS_DATANODE_USER=hadoop
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    networks:
+      hadoop-net:
+        aliases:
+          - datanode2
+    depends_on:
+      - namenode
+    command: ["/usr/local/hadoop/bin/hdfs", "datanode"]
+
+  yolo-api:
+    build:
+      context: ./yolo-api
+      dockerfile: Dockerfile
+    container_name: yolo-api
+    hostname: yolo-api
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./datasets/images:/app/images
+    networks:
+      hadoop-net:
+        aliases:
+          - yolo-api
+    depends_on:
+      - namenode
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode1:
+  hadoop_datanode2:
+
+networks:
+  hadoop-net:
+    driver: bridge
