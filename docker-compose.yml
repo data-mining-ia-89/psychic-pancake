@@ -23,7 +23,6 @@ services:
     hostname: datanode1
     ports:
       - "9864:9864"   # Web UI DataNode
-    #  - "50075:50075" # Service DataNode
       - "2223:22"     # SSH
     volumes:
       - hadoop_datanode1:/hadoop/dfs/data
@@ -40,7 +39,6 @@ services:
     hostname: datanode2
     ports:
       - "9865:9864"
-    #  - "50076:50075"
       - "2224:22"
     volumes:
       - hadoop_datanode2:/hadoop/dfs/data
@@ -58,7 +56,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./datasets/images:/app/images  # facultatif si tu as des images
+      - ./datasets/images:/app/images
     networks:
       - hadoop-net
     depends_on:
@@ -73,7 +71,7 @@ services:
       - hadoop-net
     depends_on:
       - namenode
-    restart: "no"  # il s'exécute une fois, puis s'arrête
+    restart: "no"
 
   hbase-master:
     image: harisekhon/hbase
@@ -88,6 +86,92 @@ services:
     depends_on:
       - namenode
 
+  # --- NOUVEAUX SERVICES POUR LE STREAMING ---
+  
+  # Services Kafka/Zookeeper pour le streaming
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - hadoop-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - hadoop-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - ./spark-jobs:/opt/spark-jobs
+    networks:
+      - hadoop-net
+
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    depends_on:
+      - spark-master
+    networks:
+      - hadoop-net
+
+  scraper:
+    build:
+      context: ./scraper
+    container_name: scraper
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - hadoop-net
+    restart: unless-stopped
+    
+  # Dashboard Streamlit
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+    depends_on:
+      - namenode
+      - spark-master
+    networks:
+      - hadoop-net
+    restart: unless-stopped
 
 volumes:
   hadoop_namenode:
