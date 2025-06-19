@@ -1,64 +1,93 @@
-# 🚀 Projet Hadoop - Cluster & Traitement de Données  
+# AI API - Text and Image Intelligence API
 
-## 📌 Description  
-Ce projet met en place un cluster Hadoop sous Docker avec 1 NameNode et 2 DataNodes. Il intègre également un pipeline de chargement de données depuis Kaggle vers HDFS, facilitant ainsi le traitement de données texte et image via Hadoop et Spark.  
+This repository contains the AI component of the *Hadoop & AI Project*, designed to provide a unified API for processing textual and image data using state-of-the-art deep learning models.
 
-## 🏗️ Technologies utilisées  
-- **Hadoop 3.2.1** (HDFS)  
-- **Docker & Docker-Compose**  
-- **Ansible** (automatisation)  
-- **Kaggle API** (import de datasets)  
-- **Spark / Hive** (traitement des données)  
+## 🔍 Overview
 
-## 📂 Architecture  
-Le cluster est constitué de trois conteneurs Docker :  
-- 🖥️ **NameNode** : Gestion du système de fichiers distribué  
-- 📦 **DataNode1 & DataNode2** : Stockage et traitement des données  
+The goal of this project is to develop a RESTful API, powered by FastAPI, that exposes:
 
-## 🚀 Installation et Démarrage  
+- A **Large Language Model (LLM)** for text classification, summarization, or sentiment analysis.
+- A **YOLO-based vision model** for image detection and classification.
 
-### 1️⃣ Prérequis  
-Avant de commencer, assurez-vous d'avoir :  
-- **WSL2 + Ubuntu** installé sous Windows  
-- **Docker Desktop** configuré avec WSL  
-- **Kaggle CLI** installé (`pip install kaggle`)  
+Both models are accessible via a **single API endpoint** to facilitate integration with the Hadoop infrastructure.
 
-### 2️⃣ Démarrer le cluster Hadoop  
-```bash  
-docker-compose up -d  
-```  
-Cela lance les conteneurs Hadoop en arrière-plan.  
+## 🧠 Features
 
-### 3️⃣ Vérifier l'état du cluster  
-```bash  
-docker ps  
-```  
-Vous devriez voir `namenode`, `datanode1` et `datanode2` en cours d'exécution.  
+- REST API with FastAPI
+- LLM integration (fine-tuned GPT/BERT)
+- YOLO image classification and detection
+- Supports real-time data input from Hadoop or external sources
+- JSON responses optimized for database storage
+- Docker-ready & CI/CD compatible
 
-### 4️⃣ Charger les bases de données Kaggle  
-Lancer le script d'importation :  
-```bash  
-chmod +x load_db_kaggle.sh  
-./load_db_kaggle.sh  
-```  
-Cela va :  
-✔️ Télécharger les datasets (textes et images) depuis Kaggle  
-✔️ Extraire et stocker les fichiers en local  
-✔️ Copier les données dans HDFS  
+## 🏗️ Architecture
 
-## 🔍 Accès aux interfaces  
-- **Interface HDFS NameNode** : [localhost:9870](http://localhost:9870)  
-- **Spark UI (si activé)** : [localhost:8080](http://localhost:8080)  
-- **Hive Metastore (si configuré)** : Port 10000  
+```plaintext
+             ┌────────────┐
+             │   Client   │
+             └────┬───────┘
+                  │
+         ┌────────▼────────┐
+         │    FastAPI      │
+         └────┬────┬───────┘
+              │    │
+        ┌─────▼┐ ┌─▼────────┐
+        │ LLM  │ │ YOLOv8   │
+        └──────┘ └──────────┘
+📦 Setup Instructions
+Clone the repository
 
-## 📌 Prochaines Étapes  
-✔️ Intégration Spark/Hive pour l’analyse des données  
-✔️ Mise en place d’un flux Kafka pour ingestion temps réel  
-✔️ Ajout d’une API Flask pour traitement IA avec YOLO  
 
-## 🛠️ Développement  
-Clonez le projet et modifiez `docker-compose.yml` ou `load_db_kaggle.sh` pour adapter le cluster et les datasets.  
-```bash  
-git clone https://github.com/votre-repo/projet-hadoop.git  
-cd projet-hadoop  
-```  
+git clone https://github.com/data-mining-ia-89/ai-api.git
+cd ai-api
+Install dependencies
+
+
+pip install -r requirements.txt
+Run the API
+
+
+uvicorn main:app --reload
+Access the docs
+
+Visit http://localhost:8000/docs
+
+🧪 Endpoints
+Endpoint	Method	Description
+/analyze/text	POST	Analyze or classify text
+/analyze/image	POST	Analyze or detect objects in image
+
+🤖 Models
+LLM: Fine-tuned version of BERT/GPT depending on selected task.
+
+YOLO: Re-trained on custom dataset from web-scraped images.
+
+🔁 Model Retraining
+The YOLO model can be re-trained using images from the Hadoop HDFS. Images are preprocessed (resized, normalized) and annotated (manually or semi-automatically) before fine-tuning.
+
+Training reference: Ultralytics Docs
+
+⚙️ DevOps & Deployment
+Dockerized app with ready-to-deploy Dockerfile
+
+CI/CD ready via GitHub Actions
+
+Automated image building & deployment on push to main
+
+📁 Folder Structure
+
+api_ia_fastapi/
+│
+├── app/
+│   ├── models/            # ML models and scripts
+│   ├── routes/            # API routes
+│   ├── utils/             # Preprocessing, image conversion
+│   └── main.py            # FastAPI app
+│
+├── Dockerfile
+├── requirements.txt
+└── README.md
+📊 Performance & Metrics
+Execution time and resource usage logged and benchmarked
+
+Monitoring and error tracking integrated (Prometheus / Sentry optional)
