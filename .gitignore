@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# VSCode settings (optional)
+.vscode/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environment variables
+.env
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+.DS_Store
+
+# Docker
+*.tar
+*.container
+docker-compose.override.yml
+
+# Jupyter notebooks checkpoints (if any)
+.ipynb_checkpoints/
+
+# System files
+Thumbs.db
+ehthumbs.db
