@@ -11,3 +11,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
+
+  yolo-api:
+    build:
+      context: ./yolo_server
+    ports:
+      - "8001:8000"
+    container_name: yolo-api
+    restart: unless-stopped
