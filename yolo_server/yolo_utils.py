@@ -1,0 +1,26 @@
+from ultralytics import YOLO
+import cv2
+import numpy as np
+from io import BytesIO
+
+model = YOLO("yolov8n.pt")  # ou ton modèle personnalisé
+
+def detect_objects(image_bytes: bytes):
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    results = model(img)
+    detections = results[0].boxes
+
+    detected = []
+    for box in detections:
+        cls_id = int(box.cls[0])
+        label = model.names[cls_id]
+        conf = float(box.conf[0])
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        detected.append({
+            "label": label,
+            "confidence": round(conf, 2),
+            "bbox": [x1, y1, x2, y2]
+        })
+    return {"detections": detected}
