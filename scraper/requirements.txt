@@ -1,4 +1,0 @@
-requests
-kafka-python
-feedparser
-beautifulsoup4

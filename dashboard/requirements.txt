@@ -1,4 +1,0 @@
-streamlit
-pandas
-plotly
-pyspark==3.5.0
