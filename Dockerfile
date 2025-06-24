@@ -1,17 +1,25 @@
-FROM python:3.11.9-slim-bookworm
+# Dockerfile (à la racine du projet IA)
+FROM python:3.10-slim
 
-# Reduce vulnerabilities by updating system packages and installing security updates
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends gcc libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-WORKDIR /code
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY . .
-
-ENV PYTHONPATH=/code
-
+# Copier les requirements et installer les dépendances Python
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008"]
+# Copier TOUT le code de l'application
+COPY . .
+
+# Créer les dossiers nécessaires
+RUN mkdir -p /app/models /app/logs
+
+# Exposer le port
+EXPOSE 8001
+
+# Commande de démarrage avec le bon chemin
+CMD ["uvicorn", "api_ia_fastapi.app.main:app", "--host", "0.0.0.0", "--port", "8001"]

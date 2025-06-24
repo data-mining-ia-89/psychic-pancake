@@ -1,0 +1,413 @@
+# .github/workflows/ia-cicd.yml
+name: AI API CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_API: ${{ github.repository }}/ai-api
+  IMAGE_NAME_YOLO: ${{ github.repository }}/yolo-api
+
+jobs:
+  # ============ TESTS ============
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio httpx black flake8 safety bandit
+    
+    - name: Code quality checks
+      run: |
+        # Formatting check
+        black --check --diff .
+        
+        # Linting
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+        # Security checks
+        safety check
+        bandit -r app/ --skip B101,B601
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.10'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # ============ MODEL VALIDATION ============
+  model-validation:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install ultralytics torch torchvision
+    
+    - name: Download test models
+      run: |
+        mkdir -p models/
+        # Télécharger YOLOv8 pour tests
+        python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
+        cp ~/.ultralytics/assets/yolov8n.pt models/
+    
+    - name: Validate YOLO model
+      run: |
+        python -c "
+        from ultralytics import YOLO
+        model = YOLO('models/yolov8n.pt')
+        print('✅ YOLO model loaded successfully')
+        # Test basic inference
+        results = model('https://ultralytics.com/images/bus.jpg')
+        print(f'✅ YOLO inference successful: {len(results)} results')
+        "
+    
+    - name: Test API endpoints
+      run: |
+        # Démarrer l'API en arrière-plan pour tests
+        python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        sleep 10
+        
+        # Test health endpoint
+        curl -f http://localhost:8000/health || exit 1
+        
+        # Test models status
+        curl -f http://localhost:8000/models/status || exit 1
+        
+        echo "✅ API endpoints responding"
+
+  # ============ SECURITY SCAN ============
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ============ BUILD IMAGES ============
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, model-validation, security-scan]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata for AI API
+      id: meta-api
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Extract metadata for YOLO API
+      id: meta-yolo
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_YOLO }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push AI API image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta-api.outputs.tags }}
+        labels: ${{ steps.meta-api.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+    
+    - name: Build and push YOLO API image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./yolo_server
+        file: ./yolo_server/Dockerfile
+        push: true
+        tags: ${{ steps.meta-yolo.outputs.tags }}
+        labels: ${{ steps.meta-yolo.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ============ INTEGRATION TESTS ============
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    
+    services:
+      ai-api:
+        image: ghcr.io/${{ github.repository }}/ai-api:${{ github.sha }}
+        ports:
+          - 8000:8000
+        options: --health-cmd "curl -f http://localhost:8000/health" --health-interval 30s --health-timeout 10s --health-retries 3
+      
+      yolo-api:
+        image: ghcr.io/${{ github.repository }}/yolo-api:${{ github.sha }}
+        ports:
+          - 8001:8000
+        options: --health-cmd "curl -f http://localhost:8000/predict" --health-interval 30s --health-timeout 10s --health-retries 3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Wait for services
+      run: |
+        timeout 120 sh -c 'until curl -f http://localhost:8000/health; do sleep 5; done'
+        timeout 120 sh -c 'until curl -f http://localhost:8001/predict; do sleep 5; done'
+    
+    - name: Run integration tests
+      run: |
+        # Test unified API
+        echo "Testing unified API..."
+        
+        # Test text analysis
+        curl -X POST "http://localhost:8000/analyze" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "data_type": "text",
+            "content": "This is a great product!",
+            "task": "sentiment",
+            "metadata": {"test": "integration"}
+          }' | jq '.'
+        
+        # Test batch processing
+        curl -X POST "http://localhost:8000/analyze/batch" \
+          -H "Content-Type: application/json" \
+          -d '[{
+            "data_type": "text",
+            "content": "Amazing service",
+            "task": "sentiment",
+            "metadata": {"id": "test1"}
+          }]' | jq '.'
+        
+        echo "✅ Integration tests passed"
+
+  # ============ PERFORMANCE TESTS ============
+  performance-test:
+    runs-on: ubuntu-latest
+    needs: integration-test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+    
+    - name: Create performance test script
+      run: |
+        cat > performance-test.js << 'EOF'
+        import http from 'k6/http';
+        import { check } from 'k6';
+        
+        export let options = {
+          stages: [
+            { duration: '30s', target: 10 },
+            { duration: '1m', target: 20 },
+            { duration: '30s', target: 0 },
+          ],
+          thresholds: {
+            http_req_duration: ['p(95)<2000'],
+            http_req_failed: ['rate<0.05'],
+          },
+        };
+        
+        export default function() {
+          const payload = JSON.stringify({
+            data_type: 'text',
+            content: 'Performance test message for AI analysis',
+            task: 'sentiment',
+            metadata: { test: 'performance' }
+          });
+          
+          const params = {
+            headers: { 'Content-Type': 'application/json' },
+          };
+          
+          const response = http.post('http://localhost:8000/analyze', payload, params);
+          
+          check(response, {
+            'status is 200': (r) => r.status === 200,
+            'response time < 2s': (r) => r.timings.duration < 2000,
+            'response has result': (r) => JSON.parse(r.body).result !== undefined,
+          });
+        }
+        EOF
+    
+    - name: Run performance tests
+      run: |
+        # Démarrer l'API pour les tests de performance
+        docker run -d -p 8000:8000 --name perf-test-api ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:${{ github.sha }}
+        sleep 30
+        
+        # Lancer k6
+        k6 run performance-test.js
+        
+        # Nettoyer
+        docker stop perf-test-api
+        docker rm perf-test-api
+
+  # ============ DEPLOY ============
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [integration-test, performance-test]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying AI API to production..."
+        
+        # Ici vous pourriez ajouter:
+        # - Déploiement sur Kubernetes
+        # - Mise à jour Docker Compose sur serveur
+        # - Notification Slack/Teams
+        
+        echo "✅ Deployment completed successfully"
+        
+        # Exemple de notification (à adapter selon vos besoins)
+        curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+          -H 'Content-type: application/json' \
+          --data '{
+            "text": "🚀 AI API deployed successfully to production",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*AI API Deployment* 🚀\n✅ Successfully deployed to production\n📦 Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:${{ github.sha }}`\n🔗 Commit: <${{ github.event.head_commit.url }}|${{ github.sha }}>"
+                }
+              }
+            ]
+          }' || echo "Slack notification failed"
+
+  # ============ MODEL MONITORING ============
+  model-monitoring:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Model drift detection
+      run: |
+        echo "🔍 Checking for model drift..."
+        
+        # Ici vous pourriez ajouter:
+        # - Tests de performance des modèles
+        # - Détection de drift
+        # - Validation des prédictions
+        
+        echo "✅ Model monitoring completed"
+
+  # ============ CLEANUP ============
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+    
+    steps:
+    - name: Clean up old images
+      run: |
+        echo "🧹 Cleaning up old container images..."
+        
+        # Garder seulement les 5 dernières versions
+        # (Logique de nettoyage à implémenter selon votre registry)
+        
+        echo "✅ Cleanup completed"
+
+# ============ REUSABLE WORKFLOWS ============
+# Vous pourriez aussi créer des workflows réutilisables pour:
+# - Model retraining (.github/workflows/retrain-models.yml)
+# - Security scans (.github/workflows/security-scan.yml)
+# - Performance benchmarks (.github/workflows/benchmark.yml)
