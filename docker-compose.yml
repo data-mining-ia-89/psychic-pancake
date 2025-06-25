@@ -40,4 +40,4 @@ services:
 networks:
   ai-network:
     external: true
-    name: hadoop-net  # Connecté au réseau Hadoop
+    name: hadoop-net  # Connected to the Hadoop network

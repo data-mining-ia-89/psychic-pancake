@@ -6,7 +6,7 @@ import json
 import uuid
 
 class HadoopFormatter:
-    """Formateur pour optimiser les réponses API pour stockage Hadoop"""
+    """Trainer to optimize API responses for Hadoop storage"""
     
     @staticmethod
     def format_text_analysis_result(
@@ -15,27 +15,27 @@ class HadoopFormatter:
         task: str,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """Formater les résultats d'analyse de texte pour Hadoop"""
-        
+        """Format text analysis results for Hadoop"""
+
         base_result = {
-            # Identifiants et métadonnées
+            # Identifiers and metadata
             "analysis_id": str(uuid.uuid4()),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "data_type": "text",
             "task": task,
-            
-            # Données source
+
+            # Source data
             "source": {
                 "original_text": original_text,
                 "text_length": len(original_text),
                 "word_count": len(original_text.split()) if original_text else 0,
                 "metadata": metadata or {}
             },
-            
-            # Résultats selon la tâche
+
+            # RResults by task
             "analysis": HadoopFormatter._format_text_analysis_by_task(analysis_result, task),
-            
-            # Métadonnées techniques
+
+            # Technical metadata
             "processing": {
                 "model_type": "llm",
                 "processing_time_ms": metadata.get("processing_time_ms") if metadata else None,
@@ -48,8 +48,8 @@ class HadoopFormatter:
     
     @staticmethod
     def _format_text_analysis_by_task(result: Dict[str, Any], task: str) -> Dict[str, Any]:
-        """Formater selon le type de tâche d'analyse de texte"""
-        
+        """Format according to text analysis task type"""
+
         if task == "sentiment":
             return {
                 "sentiment": {
@@ -92,16 +92,16 @@ class HadoopFormatter:
         task: str,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """Formater les résultats d'analyse d'image pour Hadoop"""
-        
+        """Format image analysis results for Hadoop"""
+
         base_result = {
-            # Identifiants et métadonnées
+            # Identifiers and metadata
             "analysis_id": str(uuid.uuid4()),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "data_type": "image",
             "task": task,
-            
-            # Données source
+
+            # Source data
             "source": {
                 "image_info": {
                     "filename": image_metadata.get("filename", "unknown"),
@@ -111,11 +111,11 @@ class HadoopFormatter:
                 },
                 "metadata": metadata or {}
             },
-            
-            # Résultats selon la tâche
+
+            # RResults by task
             "analysis": HadoopFormatter._format_image_analysis_by_task(analysis_result, task),
-            
-            # Métadonnées techniques
+
+            # Technical metadata
             "processing": {
                 "model_type": "yolo",
                 "model_version": "yolov8n",
@@ -129,8 +129,8 @@ class HadoopFormatter:
     
     @staticmethod
     def _format_image_analysis_by_task(result: Dict[str, Any], task: str) -> Dict[str, Any]:
-        """Formater selon le type de tâche d'analyse d'image"""
-        
+        """Format according to image analysis task type"""
+
         if task == "detection":
             detections = result.get("detections", [])
             return {
@@ -170,12 +170,12 @@ class HadoopFormatter:
     
     @staticmethod
     def _create_detection_summary(detections: List[Dict]) -> Dict[str, Any]:
-        """Créer un résumé des détections pour analyse rapide"""
-        
+        """Create a summary of detections for quick analysis"""
+
         if not detections:
             return {"total": 0, "classes": {}, "high_confidence_count": 0}
-        
-        # Compter par classe
+
+        # Count by class
         class_counts = {}
         high_confidence_count = 0
         total_confidence = 0
@@ -200,17 +200,17 @@ class HadoopFormatter:
     
     @staticmethod
     def format_batch_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Formater les résultats de traitement par batch"""
+        """Format batch processing results for Hadoop storage"""
         
         batch_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc).isoformat()
-        
-        # Statistiques du batch
+
+        # Batch statistics
         total_count = len(results)
         success_count = sum(1 for r in results if r.get("status") == "success")
         error_count = total_count - success_count
-        
-        # Répartition par type et tâche
+
+        # Distribution by type and task
         type_stats = {}
         task_stats = {}
         
@@ -237,7 +237,7 @@ class HadoopFormatter:
             },
             "results": results,
             "hadoop_metadata": {
-                "partition_key": timestamp.split('T')[0],  # Date pour partitionnement
+                "partition_key": timestamp.split('T')[0],  # Date for partitioning
                 "processing_node": "ai-api-node",
                 "batch_size": total_count
             }
@@ -250,7 +250,7 @@ class HadoopFormatter:
         task: str = "unknown",
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """Formater les résultats d'erreur pour Hadoop"""
+        """Format error results for Hadoop"""
         
         return {
             "analysis_id": str(uuid.uuid4()),
@@ -271,8 +271,8 @@ class HadoopFormatter:
     
     @staticmethod
     def create_hive_schema() -> str:
-        """Créer le schéma Hive pour stocker les résultats d'analyse"""
-        
+        """Create Hive schema to store analysis results"""
+
         schema = """
         CREATE TABLE IF NOT EXISTS ia_analysis_results (
             analysis_id STRING,
@@ -326,9 +326,9 @@ class HadoopFormatter:
     
     @staticmethod
     def prepare_for_hive_insert(formatted_result: Dict[str, Any]) -> Dict[str, Any]:
-        """Préparer les données formatées pour insertion Hive"""
-        
-        # Extraction des champs principaux
+        """Prepare formatted data for Hive insertion"""
+
+        # Extract main fields
         base_fields = {
             "analysis_id": formatted_result.get("analysis_id"),
             "timestamp": formatted_result.get("timestamp"),
@@ -336,15 +336,15 @@ class HadoopFormatter:
             "task": formatted_result.get("task"),
             "status": formatted_result.get("processing", {}).get("status", "unknown")
         }
-        
-        # Champs source
+
+        # Source fields
         source = formatted_result.get("source", {})
         base_fields.update({
             "source_text": source.get("original_text"),
             "source_metadata": source.get("metadata", {})
         })
         
-        # Champs spécifiques selon le type d'analyse
+        # Specific fields depending on the type of analysis
         analysis = formatted_result.get("analysis", {})
         
         if "sentiment" in analysis:
@@ -382,7 +382,7 @@ class HadoopFormatter:
                 "image_class_confidence": img_class.get("confidence")
             })
         
-        # Métadonnées techniques
+        # Technical metadata
         processing = formatted_result.get("processing", {})
         base_fields.update({
             "model_type": processing.get("model_type"),
@@ -390,12 +390,12 @@ class HadoopFormatter:
             "api_version": processing.get("api_version")
         })
         
-        # Gestion des erreurs
+        # Error handling
         error = formatted_result.get("error", {})
         if error:
             base_fields["error_message"] = error.get("message")
         
-        # Champs de partitionnement
+        # Partitioning fields
         timestamp = formatted_result.get("timestamp", "")
         base_fields.update({
             "processing_date": timestamp.split('T')[0] if timestamp else None,
@@ -404,13 +404,13 @@ class HadoopFormatter:
         
         return base_fields
 
-# Exemple d'utilisation
+# Example usage
 def example_usage():
-    """Exemple d'utilisation du formateur Hadoop"""
-    
+    """Example usage of the Hadoop formatter"""
+
     formatter = HadoopFormatter()
-    
-    # Exemple résultat sentiment
+
+    # Example sentiment result
     text_result = {
         "sentiment": "POSITIVE",
         "confidence": 0.89,
@@ -428,8 +428,8 @@ def example_usage():
     
     print("Formatage sentiment:")
     print(json.dumps(formatted, indent=2))
-    
-    # Préparer pour Hive
+
+    # Prepare for Hive
     hive_ready = formatter.prepare_for_hive_insert(formatted)
     print("\nPrêt pour Hive:")
     print(json.dumps(hive_ready, indent=2))

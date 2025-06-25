@@ -27,12 +27,12 @@ class LLMFineTuner:
             num_labels=num_labels
         )
         
-        # Ajouter un token de padding si nécessaire
+        # Add a padding token if necessary
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
     
     def prepare_data(self, texts, labels):
-        """Préparer les données pour l'entraînement"""
+        """Prepare data for training"""
         
         # Tokenisation
         encodings = self.tokenizer(
@@ -43,7 +43,7 @@ class LLMFineTuner:
             return_tensors="pt"
         )
         
-        # Créer dataset
+        # Create dataset
         dataset = Dataset.from_dict({
             'input_ids': encodings['input_ids'],
             'attention_mask': encodings['attention_mask'],
@@ -53,22 +53,22 @@ class LLMFineTuner:
         return dataset
     
     def train_sentiment_model(self, train_texts, train_labels, val_texts=None, val_labels=None):
-        """Fine-tuning pour analyse de sentiment"""
-        
-        # Préparer les données
+        """Fine-tuning for sentiment analysis"""
+
+        # Prepare data
         train_dataset = self.prepare_data(train_texts, train_labels)
         
         if val_texts is not None:
             val_dataset = self.prepare_data(val_texts, val_labels)
         else:
-            # Split automatique si pas de validation fournie
+            # Split automatically if no validation provided
             train_texts, val_texts, train_labels, val_labels = train_test_split(
                 train_texts, train_labels, test_size=0.2, random_state=42
             )
             train_dataset = self.prepare_data(train_texts, train_labels)
             val_dataset = self.prepare_data(val_texts, val_labels)
-        
-        # Configuration de l'entraînement
+
+        # Training configuration
         training_args = TrainingArguments(
             output_dir=f'./models/{self.task}_model',
             num_train_epochs=3,
@@ -84,8 +84,8 @@ class LLMFineTuner:
             metric_for_best_model="eval_f1",
             greater_is_better=True
         )
-        
-        # Métriques d'évaluation
+
+        # Evaluation metrics
         def compute_metrics(eval_pred):
             predictions, labels = eval_pred
             predictions = np.argmax(predictions, axis=1)
@@ -94,8 +94,8 @@ class LLMFineTuner:
                 'accuracy': accuracy_score(labels, predictions),
                 'f1': f1_score(labels, predictions, average='weighted')
             }
-        
-        # Créer le trainer
+
+        # Create the trainer
         self.trainer = Trainer(
             model=self.model,
             args=training_args,
@@ -104,24 +104,24 @@ class LLMFineTuner:
             compute_metrics=compute_metrics,
             data_collator=DataCollatorWithPadding(self.tokenizer)
         )
-        
-        # Lancer l'entraînement
-        print("🚀 Début du fine-tuning...")
+
+        # Start training
+        print("🚀 Starting fine-tuning...")
         self.trainer.train()
-        
-        # Sauvegarder le modèle
+
+        # Save the model
         self.trainer.save_model()
         self.tokenizer.save_pretrained(f'./models/{self.task}_model')
-        
-        print("✅ Fine-tuning terminé!")
-        
+
+        print("✅ Fine-tuning completed!")
+
         return self.trainer.evaluate()
     
     def predict(self, texts):
-        """Prédiction avec le modèle fine-tuné"""
+        """Prediction with the fine-tuned model"""
         if self.model is None:
-            raise ValueError("Modèle non chargé")
-        
+            raise ValueError("Model not loaded")
+
         encodings = self.tokenizer(
             texts,
             truncation=True,
@@ -138,15 +138,15 @@ class LLMFineTuner:
         return predicted_labels.numpy(), predictions.numpy()
     
     def load_fine_tuned_model(self, model_path):
-        """Charger un modèle déjà fine-tuné"""
+        """Load a pre-trained fine-tuned model"""
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
-# Exemple d'utilisation pour fine-tuning sentiment
+# Example usage for sentiment fine-tuning
 def create_sentiment_dataset():
-    """Créer un dataset d'exemple pour sentiment"""
-    
-    # Données d'exemple (à remplacer par vraies données Hadoop)
+    """Create a sample dataset for sentiment analysis"""
+
+    # Sample data (to be replaced with real Hadoop data)
     positive_texts = [
         "This product is amazing, I love it!",
         "Great service, highly recommended",
@@ -171,26 +171,26 @@ def create_sentiment_dataset():
         "Decent but could be better"
     ]
     
-    # Combiner les données
+    # Combine the data
     all_texts = positive_texts + negative_texts + neutral_texts
     all_labels = [2] * len(positive_texts) + [0] * len(negative_texts) + [1] * len(neutral_texts)
     
     return all_texts, all_labels
 
-# Script principal pour fine-tuning
+# Main script for fine-tuning
 def main():
-    # Créer les données d'entraînement
+    # Create training data
     texts, labels = create_sentiment_dataset()
-    
-    # Initialiser le fine-tuner
+
+    # Initialize the fine-tuner
     fine_tuner = LLMFineTuner(task="sentiment")
     fine_tuner.load_model(num_labels=3)  # positive, negative, neutral
-    
-    # Lancer le fine-tuning
+
+    # Start fine-tuning
     results = fine_tuner.train_sentiment_model(texts, labels)
-    print(f"Résultats finaux: {results}")
-    
-    # Test du modèle
+    print(f"Final results: {results}")
+
+    # Test the model
     test_texts = ["This is great!", "This is terrible", "This is okay"]
     predictions, probabilities = fine_tuner.predict(test_texts)
     

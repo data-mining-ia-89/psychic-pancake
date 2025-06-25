@@ -1,4 +1,4 @@
-# yolo_server/main.py - VERSION FONCTIONNELLE AVEC YOLO RÉEL
+# yolo_server/main.py - WORKING VERSION WITH REAL YOLO
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
@@ -11,7 +11,7 @@ import logging
 import time
 import os
 
-# Configuration du logging
+# Logging Configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -21,22 +21,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Variables globales pour le modèle
+# Global variables for the model
 model = None
 model_loaded = False
 
 def load_yolo_model():
-    """Charger le modèle YOLO au démarrage"""
+    """Load the YOLO model at startup"""
     global model, model_loaded
     
     try:
         logger.info("🔄 Loading YOLO model...")
-        
-        # Essayer de charger un modèle custom d'abord, sinon YOLOv8n par défaut
+
+        # Try to load a custom model first, otherwise YOLOv8n by default
         model_paths = [
             "./models/yolo_custom.pt",
-            "./yolov8n.pt", 
-            "yolov8n.pt"  # Téléchargement automatique si absent
+            "./yolov8n.pt",
+            "yolov8n.pt"  # Auto-download if missing
         ]
         
         for model_path in model_paths:
@@ -57,7 +57,7 @@ def load_yolo_model():
         model_loaded = False
         return False
 
-# Charger le modèle au démarrage
+# Load the model at startup
 load_yolo_model()
 
 @app.get("/")
@@ -94,19 +94,19 @@ def model_info():
         raise HTTPException(status_code=500, detail=f"Error getting model info: {str(e)}")
 
 def preprocess_image(image_bytes: bytes, target_size=(640, 640)):
-    """Prétraitement de l'image pour YOLO"""
+    """Preprocess the image for YOLO"""
     try:
-        # Convertir bytes en image PIL
+        # Convert bytes to PIL image
         image = Image.open(io.BytesIO(image_bytes))
-        
-        # Convertir en RGB si nécessaire
+
+        # Convert to RGB if necessary
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        
-        # Convertir en numpy array pour OpenCV
+
+        # Convert to numpy array for OpenCV
         img_array = np.array(image)
-        
-        # Convertir RGB en BGR pour OpenCV
+
+        # Convert RGB to BGR for OpenCV
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
         
         return img_bgr
@@ -115,7 +115,7 @@ def preprocess_image(image_bytes: bytes, target_size=(640, 640)):
         raise ValueError(f"Error preprocessing image: {str(e)}")
 
 def format_yolo_results(results, confidence_threshold=0.25):
-    """Formater les résultats YOLO pour l'API"""
+    """Format YOLO results for the API"""
     detections = []
     
     try:
@@ -124,17 +124,17 @@ def format_yolo_results(results, confidence_threshold=0.25):
                 boxes = result.boxes
                 
                 for i in range(len(boxes)):
-                    # Extraire les données de chaque détection
+                    # Extract data from each detection
                     confidence = float(boxes.conf[i])
-                    
-                    # Filtrer par seuil de confiance
+
+                    # Filter by confidence threshold    
                     if confidence < confidence_threshold:
                         continue
                     
                     class_id = int(boxes.cls[i])
                     class_name = model.names[class_id] if class_id < len(model.names) else "unknown"
-                    
-                    # Coordonnées de la bounding box
+
+                    # Bounding box coordinates
                     bbox = boxes.xyxy[i].tolist()  # [x1, y1, x2, y2]
                     
                     detection = {
@@ -166,7 +166,7 @@ async def predict_objects(
     iou_threshold: float = 0.45
 ):
     """
-    Détection d'objets avec YOLO - VERSION RÉELLE
+    Object detection with YOLO - REAL VERSION
     """
     if not model_loaded:
         raise HTTPException(
@@ -174,7 +174,7 @@ async def predict_objects(
             detail="YOLO model not loaded. Check server logs."
         )
     
-    # Vérifier le type de fichier
+    # Check file type
     if not image.content_type.startswith('image/'):
         raise HTTPException(
             status_code=400, 
@@ -183,28 +183,28 @@ async def predict_objects(
     
     try:
         start_time = time.time()
-        
-        # Lire l'image
+
+        # Read the image
         image_bytes = await image.read()
         logger.info(f"📥 Processing image: {image.filename} ({len(image_bytes)} bytes)")
-        
-        # Prétraiter l'image
+
+        # Preprocess the image
         processed_image = preprocess_image(image_bytes)
-        
-        # Configuration YOLO
-        model.conf = confidence  # Seuil de confiance
-        model.iou = iou_threshold  # Seuil IoU pour NMS
-        
-        # Lancer la détection YOLO
+
+        # YOLO Configuration
+        model.conf = confidence  # Confidence threshold
+        model.iou = iou_threshold  # IoU threshold for NMS
+
+        # Run YOLO detection
         logger.info("🔍 Running YOLO detection...")
         results = model(processed_image, verbose=False)
-        
-        # Formater les résultats
+
+        # Format results
         detections = format_yolo_results(results, confidence)
-        
-        processing_time = round((time.time() - start_time) * 1000, 2)  # en ms
-        
-        # Statistiques de détection
+
+        processing_time = round((time.time() - start_time) * 1000, 2)  # in ms
+
+        # Detection statistics
         detection_stats = {
             "total_detections": len(detections),
             "high_confidence_count": sum(1 for d in detections if d["confidence"] > 0.7),
@@ -250,16 +250,16 @@ async def predict_batch(images: list[UploadFile] = File(...)):
     for i, image in enumerate(images):
         try:
             logger.info(f"📥 Processing batch image {i+1}/{len(images)}: {image.filename}")
-            
-            # Lire et traiter l'image
+
+            # Read and process the image
             image_bytes = await image.read()
             processed_image = preprocess_image(image_bytes)
-            
-            # Configuration YOLO
+
+            # YOLO Configuration
             model.conf = 0.25
             model.iou = 0.45
-            
-            # Détection YOLO
+
+            # Run YOLO detection
             yolo_results = model(processed_image, verbose=False)
             detections = format_yolo_results(yolo_results, 0.25)
             
@@ -311,29 +311,29 @@ async def reload_model():
         logger.error(f"❌ Error reloading model: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Endpoint pour l'API IA unifiée
+# Endpoint for the unified AI API
 @app.post("/analyze/image")
 async def analyze_image_unified(
     image: UploadFile = File(...),
     task: str = "detection"
 ):
     """
-    Endpoint unifié pour l'API IA principale
-    Compatible avec le format attendu par l'API unifiée
+    Unified endpoint for the main AI API
+    Compatible with the format expected by the unified API
     """
     if task not in ["detection", "classification"]:
         raise HTTPException(status_code=400, detail="Task must be 'detection' or 'classification'")
     
     try:
-        # Lire et traiter l'image directement
+        # Read and process the image directly
         image_bytes = await image.read()
         processed_image = preprocess_image(image_bytes)
-        
-        # Configuration YOLO
+
+        # YOLO Configuration
         model.conf = 0.25
         model.iou = 0.45
-        
-        # Lancer la détection YOLO
+
+        # Run YOLO detection
         results = model(processed_image, verbose=False)
         detections = format_yolo_results(results, 0.25)
         
@@ -349,7 +349,7 @@ async def analyze_image_unified(
             }
         
         elif task == "classification":
-            # Pour la classification, prendre l'objet avec la plus haute confiance
+            # For classification, return the object with the highest confidence
             if detections:
                 best_detection = max(detections, key=lambda x: x["confidence"])
                 return {
@@ -380,8 +380,8 @@ async def analyze_image_unified(
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Vérifier que le modèle est chargé
+
+    # Check if the model is loaded
     if not model_loaded:
         logger.error("❌ Cannot start server: YOLO model not loaded")
         exit(1)

@@ -1,10 +1,10 @@
-# yolo_server/requirements.txt - VERSION COMPLÈTE AVEC YOLO
+# yolo_server/requirements.txt - FULL VERSION WITH YOLO
 
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
-# YOLO et Computer Vision
+# YOLO and Computer Vision
 ultralytics==8.0.206
 opencv-python-headless==4.8.1.78
 Pillow==10.1.0
@@ -14,5 +14,5 @@ torch==2.1.0
 torchvision==0.16.0
 numpy==1.24.3
 
-# Monitoring et logging
+# Monitoring and logging
 psutil==5.9.6

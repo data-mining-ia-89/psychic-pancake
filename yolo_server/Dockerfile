@@ -1,10 +1,10 @@
-# yolo_server/Dockerfile - VERSION AVEC YOLO RÉEL
+# yolo_server/Dockerfile - VERSION WITH REAL YOLO
 
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Installer les dépendances système nécessaires pour OpenCV et YOLO
+# Install system dependencies required for OpenCV and YOLO
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -18,26 +18,26 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copier requirements et installer les dépendances Python
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Créer le dossier pour les modèles
+# Create directory for models
 RUN mkdir -p /app/models
 
-# Copier le code de l'application
+# Copy application code
 COPY main.py .
 
-# Télécharger YOLOv8n au build (optionnel, peut aussi se faire au runtime)
+# Download YOLOv8n at build time (optional, can also be done at runtime)
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')" || echo "YOLO download skipped, will download at runtime"
 
-# Exposer le port
+# Expose the port
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Commande de démarrage
+# Startup command
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

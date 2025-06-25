@@ -29,17 +29,17 @@ class ProductionLLMFineTuner:
         self.trainer = None
         self.training_results = {}
         
-        # Configuration pour votre projet
+        # Configuration for your project
         self.output_dir = f"./models/finetuned_{task}_model"
         self.data_dir = "./training_data"
         
-        # Créer les dossiers
+        # Create directories
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.data_dir, exist_ok=True)
     
     def load_base_model(self, num_labels=3):
-        """Charger le modèle de base pour fine-tuning"""
-        print(f"🔄 Chargement du modèle de base: {self.model_name}")
+        """Load the base model for fine-tuning"""
+        print(f"🔄 Loading base model: {self.model_name}")
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModelForSequenceClassification.from_pretrained(
@@ -47,27 +47,27 @@ class ProductionLLMFineTuner:
             num_labels=num_labels,
             problem_type="single_label_classification"
         )
-        
-        # Ajouter padding token si nécessaire
+
+        # Add padding token if necessary
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             self.model.config.pad_token_id = self.tokenizer.eos_token_id
-        
-        print(f"✅ Modèle {self.model_name} chargé avec {num_labels} classes")
-    
+
+        print(f"✅ Model {self.model_name} loaded with {num_labels} classes")
+
     def create_training_data_from_hadoop(self):
         """
-        Créer des données d'entraînement à partir de vos données Hadoop
-        Utilise les reviews Amazon de votre HDFS
+        Create training data from your Hadoop data
+        Uses Amazon reviews from your HDFS
         """
-        print("📥 Création des données d'entraînement depuis Hadoop...")
-        
-        # Simulation des données Hadoop (à adapter avec vos vraies données)
-        # Dans la vraie implémentation, vous liriez depuis HDFS
-        
-        # Données Amazon Reviews enrichies pour le fine-tuning
+        print("📥 Creating training data from Hadoop...")
+
+        # Simulation of Hadoop data (to be adapted with your real data)
+        # In the real implementation, you would read from HDFS
+
+        # Enriched Amazon Reviews data for fine-tuning
         training_data = [
-            # Reviews positives (label 2)
+            # Positive reviews (label 2)
             ("This product is absolutely amazing! Great quality and fast shipping.", 2),
             ("Excellent customer service and fantastic features. Highly recommend!", 2),
             ("Perfect! Exactly what I was looking for. Great seller!", 2),
@@ -78,8 +78,8 @@ class ProductionLLMFineTuner:
             ("Superb quality and excellent customer service experience.", 2),
             ("Amazing product that works exactly as described. Very satisfied.", 2),
             ("Exceptional quality and fast delivery. Highly recommended!", 2),
-            
-            # Reviews négatives (label 0)
+
+            # Negative reviews (label 0)
             ("Terrible experience. Product broke after one day. Very disappointed.", 0),
             ("Poor quality for the price. Would not buy again. Expected better.", 0),
             ("Disappointed with the build quality. Expected more for this price.", 0),
@@ -90,8 +90,8 @@ class ProductionLLMFineTuner:
             ("Terrible customer service and defective product. Avoid this seller.", 0),
             ("Worst purchase ever. Product is nothing like advertised.", 0),
             ("Poor materials and construction. Fell apart after minimal use.", 0),
-            
-            # Reviews neutres (label 1)
+
+            # Neutral reviews (label 1)
             ("Average product. Nothing special but does what it's supposed to do.", 1),
             ("Product is okay but could be better. Mediocre experience overall.", 1),
             ("Decent product but delivery was slow. Product itself is fine.", 1),
@@ -103,28 +103,28 @@ class ProductionLLMFineTuner:
             ("Decent build quality but could have better features for price.", 1),
             ("Product meets basic expectations. Nothing more, nothing less.", 1),
         ]
-        
-        # Ajouter plus de données variées pour un meilleur fine-tuning
+
+        # Add more varied data for better fine-tuning
         extended_data = self._generate_extended_training_data()
         training_data.extend(extended_data)
-        
-        # Convertir en DataFrame
+
+        # Convert to DataFrame
         df = pd.DataFrame(training_data, columns=['text', 'label'])
-        
-        # Sauvegarder pour traçabilité
+
+        # Save for traceability
         df.to_csv(f"{self.data_dir}/training_data.csv", index=False)
-        
-        print(f"✅ Données d'entraînement créées: {len(df)} exemples")
+
+        print(f"✅ Training data created: {len(df)} examples")
         print(f"   - Positives: {len(df[df['label'] == 2])}")
-        print(f"   - Négatives: {len(df[df['label'] == 0])}")
-        print(f"   - Neutres: {len(df[df['label'] == 1])}")
-        
+        print(f"   - NNegatives: {len(df[df['label'] == 0])}")
+        print(f"   - Neutrals: {len(df[df['label'] == 1])}")
+
         return df
     
     def _generate_extended_training_data(self):
-        """Générer plus de données d'entraînement variées"""
-        
-        # Templates pour générer des variations
+        """Generate more varied training data"""
+
+        # Templates for generating variations
         positive_templates = [
             "Excellent {product}! {feature} works perfectly.",
             "Amazing {product} with great {feature}. Highly recommended!",
@@ -153,9 +153,9 @@ class ProductionLLMFineTuner:
         features = ["battery life", "sound quality", "build quality", "performance", "design", "functionality"]
         
         extended_data = []
-        
-        # Générer des variations
-        for product in products[:3]:  # Limiter pour éviter trop de données
+
+        # Generate variations
+        for product in products[:3]:  # Limit to avoid too much data
             for feature in features[:3]:
                 # Positive
                 template = np.random.choice(positive_templates)
@@ -175,9 +175,9 @@ class ProductionLLMFineTuner:
         return extended_data
     
     def prepare_datasets(self, df, test_size=0.2):
-        """Préparer les datasets d'entraînement et de validation"""
-        print("🔧 Préparation des datasets...")
-        
+        """Prepare training and validation datasets"""
+        print("🔧 Preparing datasets...")
+
         # Split train/test
         train_texts, val_texts, train_labels, val_labels = train_test_split(
             df['text'].tolist(),
@@ -204,7 +204,7 @@ class ProductionLLMFineTuner:
             return_tensors="pt"
         )
         
-        # Créer les datasets
+        # Create datasets
         train_dataset = Dataset.from_dict({
             'input_ids': train_encodings['input_ids'],
             'attention_mask': train_encodings['attention_mask'],
@@ -217,14 +217,14 @@ class ProductionLLMFineTuner:
             'labels': val_labels
         })
         
-        print(f"✅ Datasets préparés:")
-        print(f"   - Entraînement: {len(train_dataset)} exemples")
-        print(f"   - Validation: {len(val_dataset)} exemples")
+        print(f"✅ Datasets prepared:")
+        print(f"   - Training: {len(train_dataset)} examples")
+        print(f"   - Validation: {len(val_dataset)} examples")
         
         return train_dataset, val_dataset
     
     def setup_training(self):
-        """Configuration de l'entraînement"""
+        """Training configuration"""
         
         training_args = TrainingArguments(
             output_dir=self.output_dir,
@@ -243,7 +243,7 @@ class ProductionLLMFineTuner:
             metric_for_best_model="eval_f1",
             greater_is_better=True,
             push_to_hub=False,
-            report_to="none"  # Pas de wandb pour simplifier
+            report_to="none"  # No wandb to simplify
         )
         
         def compute_metrics(eval_pred):
@@ -258,9 +258,9 @@ class ProductionLLMFineTuner:
         return training_args, compute_metrics
     
     def train_model(self, train_dataset, val_dataset):
-        """Lancer le fine-tuning"""
-        print("🚀 Début du fine-tuning...")
-        
+        """Start fine-tuning"""
+        print("🚀 Starting fine-tuning...")
+
         training_args, compute_metrics = self.setup_training()
         
         self.trainer = Trainer(
@@ -271,22 +271,22 @@ class ProductionLLMFineTuner:
             compute_metrics=compute_metrics,
             data_collator=DataCollatorWithPadding(self.tokenizer)
         )
-        
-        # Lancer l'entraînement
+
+        # Start training
         start_time = datetime.now()
         train_result = self.trainer.train()
         end_time = datetime.now()
         
         training_duration = (end_time - start_time).total_seconds()
-        
-        # Sauvegarder le modèle fine-tuné
+
+        # Save the fine-tuned model
         self.trainer.save_model()
         self.tokenizer.save_pretrained(self.output_dir)
-        
-        # Évaluation finale
+
+        # Final evaluation
         eval_result = self.trainer.evaluate()
-        
-        # Sauvegarder les résultats
+
+        # Save the results
         self.training_results = {
             'training_duration_seconds': training_duration,
             'train_loss': train_result.training_loss,
@@ -295,22 +295,22 @@ class ProductionLLMFineTuner:
             'model_path': self.output_dir,
             'training_completed': datetime.now().isoformat()
         }
-        
-        # Sauvegarder les métriques
+
+        # Save metrics
         with open(f"{self.output_dir}/training_results.json", 'w') as f:
             json.dump(self.training_results, f, indent=2)
-        
-        print(f"✅ Fine-tuning terminé en {training_duration:.1f}s!")
+
+        print(f"✅ Fine-tuning completed in {training_duration:.1f}s!")
         print(f"   - Accuracy: {eval_result.get('eval_accuracy', 0):.3f}")
         print(f"   - F1 Score: {eval_result.get('eval_f1', 0):.3f}")
         
         return self.training_results
     
     def test_finetuned_model(self):
-        """Tester le modèle fine-tuné"""
-        print("🧪 Test du modèle fine-tuné...")
+        """Test the fine-tuned model"""
+        print("🧪 Testing the fine-tuned model...")
         
-        # Charger le modèle fine-tuné
+        # Load the fine-tuned model
         from transformers import pipeline
         
         classifier = pipeline(
@@ -332,8 +332,8 @@ class ProductionLLMFineTuner:
         results = []
         for text in test_texts:
             result = classifier(text)
-            
-            # Convertir les labels numériques en texte
+
+            # Convert numeric labels to text
             label_map = {0: "NEGATIVE", 1: "NEUTRAL", 2: "POSITIVE"}
             predicted_label = int(result[0]['label'].split('_')[-1])
             sentiment = label_map.get(predicted_label, "UNKNOWN")
@@ -360,10 +360,10 @@ class ProductionLLMFineTuner:
         comparison_results = []
         
         for text in test_texts:
-            # Résultat du modèle fine-tuné (déjà calculé)
+            # RResult of the fine-tuned model (already calculated)
             finetuned_result = self.test_single_text(text)
-            
-            # Résultat LM Studio
+
+            # RResult LM Studio
             try:
                 lm_studio_payload = {
                     "model": "mistralai/mathstral-7b-v0.1",
@@ -407,7 +407,7 @@ class ProductionLLMFineTuner:
         return comparison_results
     
     def test_single_text(self, text):
-        """Tester un texte unique avec le modèle fine-tuné"""
+        """Test a single text with the fine-tuned model"""
         from transformers import pipeline
         
         classifier = pipeline(
@@ -429,34 +429,34 @@ class ProductionLLMFineTuner:
         }
 
 def run_complete_finetuning_pipeline():
-    """Pipeline complet de fine-tuning pour votre projet"""
-    print("🎯 === PIPELINE COMPLET FINE-TUNING LLM ===")
-    print("📋 Conforme au cahier des charges")
+    """Complete fine-tuning pipeline for your project"""
+    print("🎯 === COMPLETE FINE-TUNING PIPELINE LLM ===")
+    print("📋 Compliant with specifications")
     print()
     
-    # Initialiser le fine-tuner
+    # Initialize the fine-tuner
     fine_tuner = ProductionLLMFineTuner(
         model_name="distilbert-base-uncased",
         task="sentiment"
     )
     
     try:
-        # 1. Charger le modèle de base
+        # 1. Load the base model
         fine_tuner.load_base_model(num_labels=3)
-        
-        # 2. Créer les données d'entraînement
+
+        # 2. Create training data
         df = fine_tuner.create_training_data_from_hadoop()
-        
-        # 3. Préparer les datasets
+
+        # 3. Prepare datasets
         train_dataset, val_dataset = fine_tuner.prepare_datasets(df)
-        
-        # 4. Lancer le fine-tuning
+
+        # 4. Start fine-tuning
         training_results = fine_tuner.train_model(train_dataset, val_dataset)
-        
-        # 5. Tester le modèle fine-tuné
+
+        # 5. Test the fine-tuned model
         test_results = fine_tuner.test_finetuned_model()
-        
-        # 6. Comparer avec LM Studio
+
+        # 6. Compare with LM Studio
         test_texts = [
             "This product is absolutely fantastic! Best purchase ever!",
             "Terrible quality, broke after one day. Completely disappointed.",
@@ -464,28 +464,28 @@ def run_complete_finetuning_pipeline():
         ]
         
         comparison = fine_tuner.compare_with_lm_studio(test_texts)
-        
-        print("\n🎉 === FINE-TUNING COMPLÉTÉ AVEC SUCCÈS ===")
-        print(f"✅ Modèle sauvegardé dans: {fine_tuner.output_dir}")
+
+        print("\n🎉 === FINE-TUNING COMPLETED SUCCESSFULLY ===")
+        print(f"✅ Model saved in: {fine_tuner.output_dir}")
         print(f"✅ Accuracy: {training_results['eval_accuracy']:.3f}")
         print(f"✅ F1 Score: {training_results['eval_f1']:.3f}")
-        print(f"✅ Durée d'entraînement: {training_results['training_duration_seconds']:.1f}s")
-        
-        print("\n📊 Comparaison LM Studio vs Fine-tuned:")
+        print(f"✅ Training duration: {training_results['training_duration_seconds']:.1f}s")
+
+        print("\n📊 Comparison LM Studio vs Fine-tuned:")
         for comp in comparison:
             agreement = "✅" if comp['agreement'] else "❌"
             print(f"   {agreement} Fine-tuned: {comp['finetuned_sentiment']} | LM Studio: {comp['lm_studio_sentiment']}")
-        
-        print("\n🚀 VOTRE PROJET EST MAINTENANT CONFORME AU CAHIER DES CHARGES!")
-        print("✅ Fine-tuning LLM réalisé")
-        print("✅ Modèle personnalisé créé")
-        print("✅ Comparaison avec LM Studio disponible")
-        print("✅ Prêt pour la soutenance!")
-        
+
+        print("\n🚀 YOUR PROJECT IS NOW COMPLIANT WITH SPECIFICATIONS!")
+        print("✅ Fine-tuning LLM completed")
+        print("✅ Custom model created")
+        print("✅ Comparison with LM Studio available")
+        print("✅ Ready for presentation!")
+
         return True
         
     except Exception as e:
-        print(f"❌ Erreur pendant le fine-tuning: {e}")
+        print(f"❌ Error during fine-tuning: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -494,9 +494,9 @@ if __name__ == "__main__":
     success = run_complete_finetuning_pipeline()
     
     if success:
-        print("\n🎯 Fine-tuning réussi! Votre API peut maintenant utiliser:")
-        print("1. Le modèle fine-tuné (nouvellement entraîné)")
-        print("2. LM Studio (pour comparaison)")
-        print("3. Analyse de performance entre les deux")
+        print("\n🎯 Fine-tuning successful! Your API can now use:")
+        print("1. The fine-tuned model (newly trained)")
+        print("2. LM Studio (for comparison)")
+        print("3. Performance analysis between the two")
     else:
-        print("\n❌ Échec du fine-tuning")
+        print("\n❌ Fine-tuning failed")

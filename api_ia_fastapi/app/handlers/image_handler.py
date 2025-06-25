@@ -4,7 +4,7 @@ import requests
 
 def process_image(filename: str, image_bytes: bytes) -> dict:
     """
-    Envoie l'image à l'API YOLO locale pour détection d'objets.
+    Sends the image to the local YOLO API for object detection.
     """
     try:
         files = {"image": (filename, image_bytes, "image/jpeg")}

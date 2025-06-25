@@ -7,7 +7,7 @@ from app.main import app
 @pytest.mark.asyncio
 async def test_analyze_text():
     async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.post("/analyze", json={"text": "Ce produit est génial, je l'adore !"})
+        response = await ac.post("/analyze", json={"text": "This product is awesome, I love it!"})
     assert response.status_code == 200
     data = response.json()
     assert data["type"] == "text"

@@ -1,25 +1,25 @@
-# Dockerfile (à la racine du projet IA)
+# Dockerfile (at the root of the IA project)
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Installer les dépendances système
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copier les requirements et installer les dépendances Python
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier TOUT le code de l'application
+# Copy all application code
 COPY . .
 
-# Créer les dossiers nécessaires
+# Create necessary directories
 RUN mkdir -p /app/models /app/logs
 
-# Exposer le port
+# Expose the port
 EXPOSE 8001
 
-# Commande de démarrage avec le bon chemin
+# Start command with the correct path
 CMD ["uvicorn", "api_ia_fastapi.app.main:app", "--host", "0.0.0.0", "--port", "8001"]

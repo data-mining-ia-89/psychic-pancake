@@ -4,7 +4,7 @@ import requests
 
 def process_text(text: str) -> dict:
     """
-    Envoie le texte à l'API LM Studio locale pour analyse de sentiment.
+    Sends the text to the local LM Studio API for sentiment analysis.
     """
     try:
         url = "http://localhost:1234/v1/chat/completions"

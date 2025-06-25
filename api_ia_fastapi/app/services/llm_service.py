@@ -1,6 +1,5 @@
 # api_ia_fastapi/app/services/llm_service.py
-# INTÉGRATION LM STUDIO POUR LE PROJET
-
+# LM STUDIO INTEGRATION FOR THE PROJECT
 import requests
 import json
 import logging
@@ -10,7 +9,7 @@ import time
 logger = logging.getLogger(__name__)
 
 class LMStudioService:
-    """Service pour intégrer LM Studio via son API REST"""
+    """Service to integrate LM Studio via its REST API"""
     
     def __init__(self, base_url: str = "http://localhost:1234"):
         self.base_url = base_url
@@ -18,12 +17,12 @@ class LMStudioService:
         self.models_url = f"{base_url}/v1/models"
         self.available = False
         self.current_model = None
-        
-        # Vérifier si LM Studio est disponible
+
+        # Check if LM Studio is available
         self._check_availability()
     
     def _check_availability(self):
-        """Vérifier si LM Studio est accessible"""
+        """Check if LM Studio is accessible"""
         try:
             response = requests.get(self.models_url, timeout=5)
             if response.status_code == 200:
@@ -41,11 +40,11 @@ class LMStudioService:
             self.available = False
     
     def is_available(self) -> bool:
-        """Vérifier si le service est disponible"""
+        """Check if the service is available"""
         return self.available
     
     def get_models(self) -> Dict[str, Any]:
-        """Récupérer la liste des modèles disponibles"""
+        """Get the list of available models"""
         try:
             response = requests.get(self.models_url, timeout=10)
             if response.status_code == 200:
@@ -57,14 +56,14 @@ class LMStudioService:
     
     def analyze_sentiment(self, text: str, metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """
-        Analyser le sentiment d'un texte via LM Studio
+        Analyze the sentiment of a text via LM Studio
         """
         if not self.available:
             raise Exception("LM Studio service not available")
         
         start_time = time.time()
-        
-        # Prompt optimisé pour l'analyse de sentiment
+
+        # Optimized prompt for sentiment analysis
         system_prompt = """You are a sentiment analysis expert. Analyze the sentiment of the given text and respond with ONLY a JSON object containing:
 - "sentiment": one of "POSITIVE", "NEGATIVE", or "NEUTRAL"
 - "confidence": a number between 0 and 1
@@ -81,7 +80,7 @@ Example response:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "temperature": 0.1,  # Faible pour plus de consistance
+            "temperature": 0.1,  # Low for more consistency
             "max_tokens": 200,
             "stream": False
         }
@@ -99,8 +98,8 @@ Example response:
             if response.status_code == 200:
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
-                
-                # Parser la réponse JSON du LLM
+
+                # Parse the LLM's JSON response
                 try:
                     parsed_result = json.loads(content.strip())
                     
@@ -115,7 +114,7 @@ Example response:
                         }
                     }
                 except json.JSONDecodeError:
-                    # Fallback si le LLM ne retourne pas du JSON valide
+                    # Fallback if the LLM does not return valid JSON
                     return self._fallback_sentiment_analysis(content, processing_time)
             
             else:
@@ -127,7 +126,7 @@ Example response:
     
     def classify_topic(self, text: str, categories: list = None, metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """
-        Classifier le sujet d'un texte via LM Studio
+        Classify the topic of a text via LM Studio
         """
         if not self.available:
             raise Exception("LM Studio service not available")
@@ -198,7 +197,7 @@ Example response:
     
     def summarize_text(self, text: str, max_sentences: int = 3, metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """
-        Résumer un texte via LM Studio
+        Summarize a text via LM Studio
         """
         if not self.available:
             raise Exception("LM Studio service not available")
@@ -267,7 +266,7 @@ Example response:
             raise Exception(f"Summarization failed: {str(e)}")
     
     def _fallback_sentiment_analysis(self, content: str, processing_time: float) -> Dict[str, Any]:
-        """Analyse de sentiment de fallback si JSON parsing échoue"""
+        """Fallback sentiment analysis if JSON parsing fails"""
         content_lower = content.lower()
         
         if any(word in content_lower for word in ["positive", "good", "great", "excellent"]):
@@ -291,8 +290,8 @@ Example response:
         }
     
     def _fallback_classification(self, content: str, categories: list, processing_time: float) -> Dict[str, Any]:
-        """Classification de fallback"""
-        # Chercher la première catégorie mentionnée dans la réponse
+        """Fallback classification"""
+        # Look for the first mentioned category in the response
         content_lower = content.lower()
         detected_category = "general"
         
@@ -312,8 +311,8 @@ Example response:
         }
     
     def _fallback_summarization(self, content: str, original_text: str, processing_time: float) -> Dict[str, Any]:
-        """Résumé de fallback"""
-        # Prendre les premières phrases comme résumé
+        """Fallback summarization"""
+        # Take the first sentences as a summary
         sentences = original_text.split('. ')
         summary = '. '.join(sentences[:2]) + '.' if len(sentences) > 1 else original_text
         
@@ -328,5 +327,5 @@ Example response:
             }
         }
 
-# Instance globale du service
+# Global instance of the service
 lm_studio_service = LMStudioService()

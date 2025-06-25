@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 class FineTunedLLMService:
     """
-    Service pour utiliser le modèle LLM fine-tuné
-    Compatible avec votre LM Studio existant
+    Service for using the fine-tuned LLM model
+    Compatible with your existing LM Studio
     """
     
     def __init__(self, finetuned_model_path="./models/finetuned_sentiment_model"):
@@ -22,15 +22,15 @@ class FineTunedLLMService:
         self.finetuned_classifier = None
         self.model_loaded = False
         
-        # Configuration LM Studio (votre setup existant)
+        # LM Studio Configuration (your existing setup)
         self.lm_studio_url = "http://host.docker.internal:1234/v1/chat/completions"
         self.lm_studio_model = "mistralai/mathstral-7b-v0.1"
-        
-        # Charger le modèle fine-tuné
+
+        # Load fine-tuned model
         self._load_finetuned_model()
     
     def _load_finetuned_model(self):
-        """Charger le modèle fine-tuné"""
+        """Load fine-tuned model"""
         try:
             if os.path.exists(self.finetuned_model_path):
                 self.finetuned_classifier = pipeline(
@@ -40,17 +40,17 @@ class FineTunedLLMService:
                     device=0 if torch.cuda.is_available() else -1
                 )
                 self.model_loaded = True
-                logger.info(f"✅ Modèle fine-tuné chargé depuis {self.finetuned_model_path}")
+                logger.info(f"✅ Fine-tuned model loaded from {self.finetuned_model_path}")
             else:
-                logger.warning(f"⚠️ Modèle fine-tuné non trouvé: {self.finetuned_model_path}")
+                logger.warning(f"⚠️ Fine-tuned model not found: {self.finetuned_model_path}")
                 self.model_loaded = False
         except Exception as e:
-            logger.error(f"❌ Erreur chargement modèle fine-tuné: {e}")
+            logger.error(f"❌ Error loading fine-tuned model: {e}")
             self.model_loaded = False
     
     def analyze_sentiment_finetuned(self, text: str, metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """
-        Analyser le sentiment avec le modèle fine-tuné
+        Analyze sentiment with the fine-tuned model
         """
         if not self.model_loaded:
             raise Exception("Fine-tuned model not available")
@@ -58,11 +58,11 @@ class FineTunedLLMService:
         start_time = time.time()
         
         try:
-            # Utiliser le modèle fine-tuné
+            # Use the fine-tuned model
             result = self.finetuned_classifier(text)
             processing_time = round((time.time() - start_time) * 1000, 2)
-            
-            # Mapper les labels numériques aux sentiments
+
+            # Map numeric labels to sentiments
             label_map = {
                 "LABEL_0": "NEGATIVE",
                 "LABEL_1": "NEUTRAL", 
@@ -86,12 +86,12 @@ class FineTunedLLMService:
             }
             
         except Exception as e:
-            logger.error(f"Erreur analyse fine-tuned: {e}")
+            logger.error(f"Error analyzing fine-tuned: {e}")
             raise Exception(f"Fine-tuned sentiment analysis failed: {str(e)}")
     
     def analyze_sentiment_lm_studio(self, text: str, metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """
-        Analyser le sentiment avec LM Studio (votre setup existant)
+        Analyze sentiment with LM Studio (your existing setup)
         """
         start_time = time.time()
         
@@ -141,7 +141,7 @@ class FineTunedLLMService:
     
     def analyze_sentiment_comparative(self, text: str, metadata: Optional[Dict] = None) -> Dict[str, Any]:
         """
-        Analyser le sentiment avec les DEUX modèles et comparer
+        Analyze sentiment with BOTH models and compare
         """
         start_time = time.time()
         
@@ -150,8 +150,8 @@ class FineTunedLLMService:
             "comparative_analysis": True,
             "models_compared": 2
         }
-        
-        # Analyser avec le modèle fine-tuné
+
+        # Analyze with fine-tuned model
         try:
             if self.model_loaded:
                 finetuned_result = self.analyze_sentiment_finetuned(text, metadata)
@@ -160,29 +160,29 @@ class FineTunedLLMService:
                 results["finetuned_model"] = {"error": "Model not loaded"}
         except Exception as e:
             results["finetuned_model"] = {"error": str(e)}
-        
-        # Analyser avec LM Studio
+
+        # Analyze with LM Studio
         try:
             lm_studio_result = self.analyze_sentiment_lm_studio(text, metadata)
             results["lm_studio_model"] = lm_studio_result["sentiment"]
         except Exception as e:
             results["lm_studio_model"] = {"error": str(e)}
-        
-        # Comparer les résultats
-        if ("error" not in results.get("finetuned_model", {}) and 
+
+        # Compare results
+        if ("error" not in results.get("finetuned_model", {}) and
             "error" not in results.get("lm_studio_model", {})):
             
             ft_sentiment = results["finetuned_model"]["label"]
             lm_sentiment = results["lm_studio_model"]["label"]
             
             agreement = ft_sentiment == lm_sentiment
-            
-            # Choisir le résultat final (priorité au fine-tuned)
+
+            # Choose final result (priority to fine-tuned)
             if agreement:
                 final_result = results["finetuned_model"]
                 final_result["consensus"] = True
             else:
-                # Prendre le fine-tuned par défaut, mais signaler le désaccord
+                # Take fine-tuned by default, but report disagreement
                 final_result = results["finetuned_model"]
                 final_result["consensus"] = False
                 final_result["disagreement_details"] = {
@@ -193,7 +193,7 @@ class FineTunedLLMService:
             results["final_sentiment"] = final_result
             results["agreement"] = agreement
         else:
-            # Fallback si une des analyses a échoué
+            # Fallback if one of the analyses failed
             if "error" not in results.get("finetuned_model", {}):
                 results["final_sentiment"] = results["finetuned_model"]
             elif "error" not in results.get("lm_studio_model", {}):
@@ -207,7 +207,7 @@ class FineTunedLLMService:
         return results
     
     def _fallback_lm_studio_analysis(self, content: str, processing_time: float) -> Dict[str, Any]:
-        """Analyse de fallback pour LM Studio"""
+        """Fallback analysis for LM Studio"""
         content_lower = content.lower()
         
         if any(word in content_lower for word in ["positive", "good", "great"]):
@@ -232,7 +232,7 @@ class FineTunedLLMService:
         }
     
     def get_model_info(self) -> Dict[str, Any]:
-        """Informations sur les modèles disponibles"""
+        """Information about available models"""
         return {
             "finetuned_model": {
                 "available": self.model_loaded,
@@ -252,11 +252,11 @@ class FineTunedLLMService:
             }
         }
 
-# Instance globale du service
+# Global instance of the service
 finetuned_llm_service = FineTunedLLMService()
 
 
-# Mise à jour de votre main.py pour intégrer le fine-tuning
+# Update your main.py to integrate fine-tuning
 # api_ia_fastapi/app/main_with_finetuning.py
 
 from fastapi import FastAPI, HTTPException
@@ -277,7 +277,7 @@ app = FastAPI(
 )
 
 class UnifiedRequest(BaseModel):
-    data_type: str  # "text" ou "image"
+    data_type: str  # "text" or "image"
     content: Union[str, dict]
     task: str
     model_preference: Optional[str] = "finetuned"  # "finetuned", "lm_studio", "comparative"
@@ -285,7 +285,7 @@ class UnifiedRequest(BaseModel):
 
 @app.post("/analyze")
 async def unified_analyze(request: UnifiedRequest):
-    """Point d'entrée unique avec support du modèle fine-tuné"""
+    """Single entry point with fine-tuned model support"""
     try:
         if request.data_type == "text":
             result = await process_text_analysis_enhanced(
@@ -323,13 +323,13 @@ async def process_text_analysis_enhanced(
     model_preference: str = "finetuned",
     metadata: dict = None
 ):
-    """Traitement de texte avec modèle fine-tuné"""
-    
+    """Text processing with fine-tuned model"""
+
     if not text or len(text.strip()) < 3:
         raise HTTPException(status_code=400, detail="Text too short for analysis")
     
     if task == "sentiment":
-        # Utiliser le modèle selon la préférence
+        # Use model according to preference
         if model_preference == "finetuned" and finetuned_llm_service.model_loaded:
             return finetuned_llm_service.analyze_sentiment_finetuned(text, metadata)
         
@@ -340,16 +340,16 @@ async def process_text_analysis_enhanced(
             return finetuned_llm_service.analyze_sentiment_comparative(text, metadata)
         
         else:
-            # Fallback vers LM Studio si fine-tuned pas disponible
+            # Fallback to LM Studio if fine-tuned not available
             try:
                 return finetuned_llm_service.analyze_sentiment_lm_studio(text, metadata)
             except Exception:
                 return await process_text_fallback(text, task, metadata)
     
     elif task == "classification":
-        # Pour la classification, utiliser LM Studio (ou ajouter fine-tuning classification)
+        # For classification, use LM Studio (or add fine-tuning classification)
         try:
-            return finetuned_llm_service.analyze_sentiment_lm_studio(text, metadata)
+            return finetuned_llm_service.analyze_classification_lm_studio(text, metadata)
         except Exception:
             return await process_text_fallback(text, task, metadata)
     
@@ -357,7 +357,7 @@ async def process_text_analysis_enhanced(
         return await process_text_fallback(text, task, metadata)
 
 async def process_text_fallback(text: str, task: str, metadata: dict = None):
-    """Analyse de fallback basique"""
+    """Basic fallback analysis"""
     if task == "sentiment":
         positive_words = ["good", "great", "amazing", "excellent", "love", "awesome"]
         negative_words = ["bad", "terrible", "awful", "hate", "horrible", "worst"]
@@ -390,9 +390,9 @@ async def process_text_fallback(text: str, task: str, metadata: dict = None):
         raise HTTPException(status_code=400, detail=f"Unsupported task: {task}")
 
 async def process_image_analysis(image_data: Union[str, dict], task: str, metadata: dict = None):
-    """Traitement d'image - intégration avec YOLO API (inchangé)"""
+    """Image processing - integration with YOLO API (unchanged)"""
     try:
-        # Simulation YOLO (à remplacer par vraie intégration)
+        # YOLO Simulation (to be replaced with real integration)
         mock_yolo_response = {
             "detections": [
                 {
@@ -447,8 +447,8 @@ def root():
 
 @app.get("/health")
 async def health_check():
-    """Vérification de l'état de l'API et des modèles"""
-    
+    """Check the health of the API and models"""
+
     model_info = finetuned_llm_service.get_model_info()
     
     return {
@@ -464,8 +464,8 @@ async def health_check():
 
 @app.get("/models/comparison")
 async def models_comparison():
-    """Comparaison détaillée des modèles"""
-    
+    """Detailed comparison of models"""
+
     test_texts = [
         "This product is absolutely amazing! I love it!",
         "Terrible quality, completely disappointed with this purchase.",
@@ -497,7 +497,7 @@ async def models_comparison():
 
 @app.post("/analyze/sentiment/finetuned")
 async def analyze_sentiment_finetuned_direct(text: str):
-    """Endpoint direct pour le modèle fine-tuné"""
+    """Direct endpoint for the fine-tuned model"""
     try:
         result = finetuned_llm_service.analyze_sentiment_finetuned(text)
         return {"status": "success", "result": result}
@@ -506,7 +506,7 @@ async def analyze_sentiment_finetuned_direct(text: str):
 
 @app.post("/analyze/sentiment/comparative")
 async def analyze_sentiment_comparative_direct(text: str):
-    """Endpoint direct pour comparaison des modèles"""
+    """Direct endpoint for model comparison"""
     try:
         result = finetuned_llm_service.analyze_sentiment_comparative(text)
         return {"status": "success", "result": result}

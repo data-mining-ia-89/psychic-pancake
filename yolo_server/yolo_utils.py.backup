@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from io import BytesIO
 
-model = YOLO("yolov8n.pt")  # ou ton modèle personnalisé
+model = YOLO("yolov8n.pt")  # or your personalized model
 
 def detect_objects(image_bytes: bytes):
     nparr = np.frombuffer(image_bytes, np.uint8)

@@ -1,4 +1,4 @@
-# api_ia_fastapi/app/main.py - VERSION SIMPLIFIÉE TOUT-EN-UN
+# api_ia_fastapi/app/main.py - SIMPLIFIED ALL-IN-ONE VERSION
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -8,7 +8,7 @@ import json
 import logging
 import time
 
-# Configuration du logging
+# Logging Configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -18,25 +18,25 @@ app = FastAPI(
     version="2.0.0"
 )
 
-namenode_url = "http://namenode:9870"  # Nom du conteneur Hadoop
+namenode_url = "http://namenode:9870"  # Name of the Hadoop container
 
 
-# ============ CLASSE LM STUDIO INTÉGRÉE ============
+# ============ LM STUDIO INTEGRATION CLASS ============
 class LMStudioService:
-    """Service pour intégrer LM Studio - Version simplifiée"""
-    
+    """Service to integrate LM Studio - Simplified Version"""
+
     def __init__(self, base_url: str = "http://host.docker.internal:1234"):
         self.base_url = base_url
         self.api_url = f"{base_url}/v1/chat/completions"
         self.models_url = f"{base_url}/v1/models"
         self.available = False
         self.current_model = None
-        
-        # Vérifier si LM Studio est disponible
+
+        # Check if LM Studio is available
         self._check_availability()
     
     def _check_availability(self):
-        """Vérifier si LM Studio est accessible"""
+        """Check if LM Studio is accessible"""
         try:
             response = requests.get(self.models_url, timeout=5)
             if response.status_code == 200:
@@ -54,7 +54,7 @@ class LMStudioService:
             self.available = False
     
     def analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        """Analyser le sentiment via LM Studio"""
+        """Analyze sentiment via LM Studio"""
         if not self.available:
             raise Exception("LM Studio service not available")
         
@@ -120,20 +120,20 @@ class LMStudioService:
         except Exception as e:
             raise Exception(f"Sentiment analysis failed: {str(e)}")
 
-# Instance globale
+# Global instance of LMStudioService
 lm_studio_service = LMStudioService()
 
-# ============ MODÈLES PYDANTIC ============
+# ============ Pydantic MODELS ============
 class UnifiedRequest(BaseModel):
-    data_type: str  # "text" ou "image"
-    content: Union[str, dict]  # texte ou image en base64
+    data_type: str  # "text" or "image"
+    content: Union[str, dict]  # text or image in base64
     task: str
     metadata: Optional[dict] = None
 
-# ============ ENDPOINT UNIFIÉ PRINCIPAL ============
+# ============ MAIN UNIFIED ENDPOINT ============
 @app.post("/analyze")
 async def unified_analyze(request: UnifiedRequest):
-    """Point d'entrée unique pour analyse texte (LM Studio) et image (YOLO)"""
+    """Unified endpoint for text (LM Studio) and image (YOLO) analysis"""
     try:
         if request.data_type == "text":
             result = await process_text_analysis(
@@ -163,26 +163,26 @@ async def unified_analyze(request: UnifiedRequest):
         logger.error(f"Analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ============ TRAITEMENT TEXTE ============
+# ============ TEXT PROCESSING ============
 async def process_text_analysis(text: str, task: str, metadata: dict = None):
-    """Traitement du texte avec LM Studio ou fallback"""
-    
+    """Process text with LM Studio or fallback"""
+
     if not text or len(text.strip()) < 3:
         raise HTTPException(status_code=400, detail="Text too short for analysis")
-    
-    # Essayer LM Studio d'abord
+
+    # Try LM Studio first
     if lm_studio_service.available and task == "sentiment":
         try:
             return lm_studio_service.analyze_sentiment(text)
         except Exception as e:
             logger.warning(f"LM Studio failed, using fallback: {e}")
-    
-    # Analyse de fallback
+
+    # Fallback analysis
     return await process_text_fallback(text, task, metadata)
 
 async def process_text_fallback(text: str, task: str, metadata: dict = None):
-    """Analyse de fallback si LM Studio indisponible"""
-    
+    """Fallback analysis if LM Studio is unavailable"""
+    """Simple keyword-based analysis for sentiment, classification, or summarization"""
     if task == "sentiment":
         positive_words = ["good", "great", "amazing", "excellent", "love", "awesome", "fantastic", "perfect", "wonderful"]
         negative_words = ["bad", "terrible", "awful", "hate", "horrible", "worst", "disappointing", "poor", "disgusting"]
@@ -264,15 +264,15 @@ async def process_text_fallback(text: str, task: str, metadata: dict = None):
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported text task: {task}")
 
-# ============ TRAITEMENT IMAGE ============
+# ============ IMAGE PROCESSING ============
 async def process_image_analysis(image_data: Union[str, dict], task: str, metadata: dict = None):
-    """Traitement d'image - intégration avec YOLO API"""
-    
+    """Image processing - integration with YOLO API"""
+
     try:
-        # Appel à l'API YOLO (sur port 8000 interne)
+        # Call YOLO API (on internal port 8000)
         yolo_url = "http://yolo-api:8000/analyze/image"
-        
-        # Pour l'instant, simulation - sera remplacé par l'appel YOLO réel
+
+        # For now, simulation - will be replaced by actual YOLO call
         mock_yolo_response = {
             "detections": [
                 {
@@ -317,7 +317,7 @@ async def process_image_analysis(image_data: Union[str, dict], task: str, metada
         logger.error(f"Image processing error: {e}")
         raise HTTPException(status_code=400, detail=f"Image processing error: {str(e)}")
 
-# ============ ENDPOINTS DE SANTÉ ============
+# ============ HEALTH CHECK ENDPOINTS ============
 @app.get("/")
 def root():
     return {
@@ -328,8 +328,8 @@ def root():
 
 @app.get("/health")
 async def health_check():
-    """Vérification de l'état de l'API et des services"""
-    
+    """Check API and service status"""
+
     # Re-check LM Studio status
     lm_studio_service._check_availability()
     lm_studio_status = "available" if lm_studio_service.available else "unavailable"
@@ -371,10 +371,10 @@ async def models_status():
         }
     }
 
-# ============ ENDPOINT BATCH POUR HADOOP ============
+# ============ BATCH ENDPOINT FOR HADOOP ============
 @app.post("/analyze/batch")
 async def batch_analyze(requests: List[UnifiedRequest]):
-    """Traitement par batch pour les données Hadoop"""
+    """Batch processing for Hadoop data"""
     results = []
     
     for req in requests:
@@ -403,10 +403,10 @@ async def batch_analyze(requests: List[UnifiedRequest]):
         "failed": sum(1 for r in results if r["status"] == "error")
     }
 
-# ============ ENDPOINTS SPÉCIALISÉS ============
+# ============ SPECIALIZED ENDPOINTS ============
 @app.post("/analyze/sentiment")
 async def analyze_sentiment_direct(text: str):
-    """Endpoint direct pour analyse de sentiment"""
+    """Direct endpoint for sentiment analysis"""
     try:
         result = await process_text_analysis(text, "sentiment")
         return {"status": "success", "result": result}
@@ -415,7 +415,7 @@ async def analyze_sentiment_direct(text: str):
 
 @app.post("/analyze/classify")
 async def classify_text_direct(text: str):
-    """Endpoint direct pour classification"""
+    """Direct endpoint for classification"""
     try:
         result = await process_text_analysis(text, "classification")
         return {"status": "success", "result": result}
