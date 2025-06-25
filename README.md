@@ -4,6 +4,52 @@
 
 This repository contains the AI component of our **Hadoop & AI Project**, providing a unified REST API for advanced text analysis and computer vision capabilities with seamless Hadoop integration.
 
+## ⚠️ IMPORTANT - Instructions for Evaluators
+
+### Mandatory Prerequisites
+
+**BEFORE STARTING**, the evaluator must install and configure:
+
+1. **Git Bash** (mandatory for Windows) :
+   - Download from : https://git-scm.com/downloads
+   - Install with default options
+   - Use Git Bash for all commands in this project
+
+2. **File Permissions** :
+   ```bash
+   # In Git Bash, after cloning the project
+   cd psychic-pancake
+   
+   # Grant execution rights to scripts
+   chmod +x scripts/*.sh
+   chmod +x *.sh
+   
+   # For Windows, if permission issues persist :
+   git config core.filemode false
+   ```
+
+3. **Docker Desktop** installed and running
+
+### Quick Evaluation Commands
+
+```bash
+# 1. Clone and configure the project
+git clone https://github.com/data-mining-ia-89/psychic-pancake.git
+cd psychic-pancake
+chmod +x scripts/*.sh
+
+# 2. Start all services
+docker-compose up -d
+
+# 3. Verify deployment
+./scripts/verify-deployment.sh
+
+# 4. Test AI API
+curl -X POST "http://localhost:8001/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"data_type": "text", "content": "This AI service is amazing!", "task": "sentiment"}'
+```
+
 ## 🎯 Overview
 
 A comprehensive AI service that exposes:
@@ -14,6 +60,19 @@ A comprehensive AI service that exposes:
 - **Hadoop Integration** for processing big data workflows
 - **LM Studio Compatibility** for model comparison and validation
 - **Production-ready** with monitoring, testing, and CI/CD
+
+## 👥 Development Team
+
+**Hadoop & AI Project - Master Data Science**
+
+- **Project Manager**: [Project Manager Name]
+- **AI Developer**: [AI Developer Name]
+- **Hadoop Engineer**: [Hadoop Engineer Name]
+- **DevOps Engineer**: [DevOps Engineer Name]
+
+**Supervisor**: [Professor Name]  
+**University**: [University Name]  
+**Academic Year**: 2024-2025
 
 ## 🏗️ Architecture
 
@@ -43,37 +102,59 @@ A comprehensive AI service that exposes:
 
 ### Prerequisites
 
-- Docker Desktop
-- 4GB+ RAM for AI models
-- NVIDIA GPU (optional, for faster inference)
+- **Git Bash** (Windows) or Terminal (macOS/Linux)
+- **Docker Desktop** installed and running
+- **4GB+ RAM** available for AI models
+- **NVIDIA GPU** (optional, for faster inference)
+- **Available ports**: 8001, 8002, 9870, 8088, 8080
 
-### 1. Deploy AI API
+### 1. Initial Configuration
 
 ```bash
-git clone https://github.com/data-mining-ia-89/ai-api.git
-cd ai-api
+# Clone the project
+git clone https://github.com/data-mining-ia-89/psychic-pancake.git
+cd psychic-pancake
 
-# Start the unified AI service
-docker-compose up -d
+# Configure permissions (MANDATORY)
+chmod +x scripts/*.sh
+chmod +x *.sh
+
+# Verify Docker
+docker --version
+docker-compose --version
 ```
 
-### 2. Verify Deployment
+### 2. Deploy AI API
 
 ```bash
-# Check API health
-curl http://localhost:8001/health
+# Start all services
+docker-compose up -d
 
-# Check YOLO service
+# Check container status
+docker ps
+
+# Follow logs in real-time
+docker-compose logs -f
+```
+
+### 3. Verify Deployment
+
+```bash
+# Automatic verification script
+./scripts/verify-deployment.sh
+
+# Manual verifications
+curl http://localhost:8001/health
 curl http://localhost:8002/health
 
-# View running containers
-docker ps
+# Hadoop web interface
+# Open http://localhost:9870 in browser
 ```
 
-### 3. Test the API
+### 4. Test the API
 
 ```bash
-# Test text sentiment analysis
+# Test sentiment analysis
 curl -X POST "http://localhost:8001/analyze" \
   -H "Content-Type: application/json" \
   -d '{
@@ -83,9 +164,53 @@ curl -X POST "http://localhost:8001/analyze" \
     "model_preference": "finetuned"
   }'
 
-# Test image analysis
+# Test image analysis (with test image)
 curl -X POST "http://localhost:8002/predict" \
-  -F "image=@test_image.jpg"
+  -F "image=@test_data/sample_image.jpg"
+
+# Test model comparison
+curl http://localhost:8001/models/comparison
+```
+
+## 🎓 Evaluation Criteria
+
+### Expected Features (100 points)
+
+1. **Deployment and Configuration (20 points)**
+   - Functional Docker services
+   - Accessible and responsive API
+   - Correct model configuration
+
+2. **Fine-tuned Model (25 points)**
+   - Correctly implemented fine-tuning
+   - Acceptable performance metrics
+   - Comparison with base model
+
+3. **YOLO Integration (20 points)**
+   - Functional object detection
+   - Operational image analysis API
+   - Acceptable performance
+
+4. **Hadoop Integration (20 points)**
+   - Established Hadoop-AI connection
+   - Batch data processing
+   - Results persistence
+
+5. **Code Quality and Documentation (15 points)**
+   - Clean and commented code
+   - Present unit tests
+   - Complete documentation
+
+### Evaluation Tests
+
+```bash
+# Run complete test suite
+./scripts/run-evaluation-tests.sh
+
+# Specific tests
+python -m pytest tests/test_evaluation.py -v
+python tests/test_hadoop_integration.py
+python tests/test_model_performance.py
 ```
 
 ## 🧠 AI Models
@@ -472,33 +597,59 @@ curl -X POST "http://localhost:8001/analyze/batch" \
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+### Common Issues and Solutions
 
-**Model Loading Errors**:
+**Permission Errors (Windows)**:
 ```bash
-# Check model files
-ls -la models/
+# In Git Bash
+chmod +x scripts/*.sh
+git config core.filemode false
 
-# Verify model integrity
-python -c "from transformers import AutoModel; AutoModel.from_pretrained('./models/finetuned_sentiment_model')"
+# If issues persist
+git update-index --chmod=+x scripts/run-finetuning.sh
 ```
 
-**API Connection Issues**:
+**Docker Won't Start**:
 ```bash
-# Test network connectivity
-docker exec ai-api-unified ping yolo-api
+# Check Docker Desktop is running
+docker info
 
-# Check port availability
-netstat -tlnp | grep 8001
+# Clean old containers
+docker-compose down
+docker system prune -f
+
+# Restart
+docker-compose up -d
+```
+
+**Ports Already in Use**:
+```bash
+# Check occupied ports
+netstat -tulpn | grep :8001
+
+# Modify ports in docker-compose.yml if necessary
+# Example: "8003:8001" instead of "8001:8001"
+```
+
+**AI Models Won't Load**:
+```bash
+# Check disk space (models = ~2GB)
+df -h
+
+# Download models manually
+./scripts/download-models.sh
+
+# Check logs
+docker logs ai-api-unified
 ```
 
 **Memory Issues**:
 ```bash
-# Monitor memory usage
-docker stats ai-api-unified yolo-api-server
+# Increase Docker Desktop memory to 6GB minimum
+# Settings > Resources > Advanced > Memory
 
-# Optimize model loading
-export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+# Monitor usage
+docker stats
 ```
 
 ### Debug Mode
@@ -551,7 +702,7 @@ print(response.json())
 ## 🏆 Project Structure
 
 ```
-ai-api/
+psychic-pancake/
 ├── api_ia_fastapi/           # Main FastAPI application
 │   ├── app/
 │   │   ├── models/           # AI model implementations
@@ -559,13 +710,39 @@ ai-api/
 │   │   ├── utils/            # Utility functions
 │   │   └── main.py          # FastAPI app entry point
 ├── yolo_server/             # YOLO computer vision service
+├── hadoop_integration/      # Hadoop-IA integration scripts
 ├── tests/                   # Test suites
 ├── scripts/                 # Deployment and utility scripts
 ├── models/                  # Trained model storage
+├── test_data/              # Sample data for testing
+├── docs/                   # Additional documentation
 ├── docker-compose.yml       # Service orchestration
 ├── requirements.txt         # Python dependencies
 └── README.md               # This file
 ```
+
+## 📋 Evaluation Checklist
+
+### For Evaluators
+
+- [ ] Git Bash installed and configured
+- [ ] Docker Desktop running
+- [ ] Project cloned and permissions configured
+- [ ] Services deployed with `docker-compose up -d`
+- [ ] API accessible at http://localhost:8001
+- [ ] Basic tests passed with `./scripts/verify-deployment.sh`
+- [ ] Fine-tuning executed successfully
+- [ ] Models compared and metrics displayed
+- [ ] Hadoop integration tested
+- [ ] Technical documentation complete
+
+### Expected Deliverables
+
+1. **Source Code**: Complete Git repository
+2. **Fine-tuned Models**: Trained and exported models
+3. **Documentation**: README, API docs, architecture
+4. **Tests**: Automated test suite
+5. **Demo**: Presentation video (optional)
 
 ## 🎓 Educational Value
 
@@ -606,6 +783,11 @@ pre-commit install
 
 This project is part of an academic assignment and is intended for educational purposes.
 
+**University**: [University Name]  
+**Master**: Data Science & Artificial Intelligence  
+**Course**: Hadoop and Artificial Intelligence  
+**Year**: 2024-2025
+
 ## 🚀 What's Next?
 
 - **Transformer models** for advanced NLP tasks
@@ -615,6 +797,38 @@ This project is part of an academic assignment and is intended for educational p
 - **Edge deployment** optimization
 - **Kubernetes** orchestration
 
+## 📞 Support and Contact
+
+**In case of issues during evaluation** :
+
+1. Consult the [Troubleshooting](#-troubleshooting) section
+2. Check logs: `docker-compose logs`
+3. Run diagnostic script: `./scripts/diagnose-issues.sh`
+4. Contact the team via [email/discord/etc.]
+
 ---
 
+**🎯 Quick Instructions for Evaluators** :
+
+```bash
+# 1. Prerequisites
+# Install Git Bash from https://git-scm.com/downloads
+
+# 2. Quick deployment
+git clone <repository-url>
+cd psychic-pancake
+chmod +x scripts/*.sh
+docker-compose up -d
+
+# 3. Verification
+./scripts/verify-deployment.sh
+
+# 4. Main test
+curl -X POST "http://localhost:8001/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"data_type": "text", "content": "Amazing AI project!", "task": "sentiment"}'
+```
+
 **Ready to power your AI workflows? Deploy with `docker-compose up -d` and start analyzing! 🤖**
+
+**Ready for evaluation? Follow the instructions above and discover our complete AI solution! 🚀**
