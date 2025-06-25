@@ -1,0 +1,7 @@
+{
+  "eval_accuracy": 0.923,
+  "eval_f1": 0.914,
+  "training_duration_seconds": 180,
+  "model_path": "./models/finetuned_sentiment_model",
+  "training_completed": "2025-06-25T20:21:59.482352"
+}

@@ -430,7 +430,7 @@ run_api_tests() {
     
     # Test YOLO API
     echo -e "${BLUE}📷 Testing YOLO API...${NC}"
-    python3 test_yolo.py || echo -e "${YELLOW}⚠️ YOLO test had issues${NC}"
+    docker exec ai-api-unified python test_yolo.py || echo -e "${YELLOW}⚠️ YOLO test had issues${NC}"
 }
 
 run_integration_tests() {
@@ -647,7 +647,7 @@ show_access_info() {
     echo -e "  $0 --integration   # Test Hadoop integration"
     echo -e "  docker-compose logs ai-api        # View AI API logs"
     echo -e "  docker-compose logs yolo-api      # View YOLO API logs"
-    echo -e "  python3 test_yolo.py              # Test YOLO functionality"
+    echo -e "  docker exec ai-api-unified python test_yolo.py              # Test YOLO functionality"
 }
 
 show_examples() {
@@ -933,7 +933,7 @@ show_troubleshooting() {
     echo -e "  docker-compose logs  # All logs"
     echo -e "  docker stats        # Resource usage"
     echo -e "  curl http://localhost:8001/health  # API health"
-    echo -e "  python3 test_yolo.py              # YOLO test"
+    echo -e "  docker exec ai-api-unified python test_yolo.py              # YOLO test"
 }
 
 # Fonction pour montrer les logs en temps réel
