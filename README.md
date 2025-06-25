@@ -30,6 +30,7 @@ This repository contains the AI component of our **Hadoop & AI Project**, provid
 
 3. **Docker Desktop** installed and running
 4. Launch the **Hadoop container** first and the **AI container** after the Hadoop container has been launched to 100%.
+5. Remember to take the mistralai/mathstral-7b-v0.1 model in llm studio and run the server before building and launching the clusters.
 
 ### Quick Evaluation Commands
 
@@ -188,36 +189,6 @@ curl -X POST "http://localhost:8002/predict" \
 curl http://localhost:8001/models/comparison
 ```
 
-## 🎓 Evaluation Criteria
-
-### Expected Features (100 points)
-
-1. **Deployment and Configuration (20 points)**
-   - Functional Docker services
-   - Accessible and responsive API
-   - Correct model configuration
-
-2. **Fine-tuned Model (25 points)**
-   - Correctly implemented fine-tuning
-   - Acceptable performance metrics
-   - Comparison with base model
-
-3. **YOLO Integration (20 points)**
-   - Functional object detection
-   - Operational image analysis API
-   - Acceptable performance
-
-4. **Hadoop Integration (20 points)**
-   - Established Hadoop-AI connection
-   - Batch data processing
-   - Results persistence
-
-5. **Code Quality and Documentation (15 points)**
-   - Clean and commented code
-   - Present unit tests
-   - Complete documentation
-
-### Evaluation Tests
 
 ```bash
 # Run complete test suite
