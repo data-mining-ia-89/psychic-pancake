@@ -29,6 +29,7 @@ This repository contains the AI component of our **Hadoop & AI Project**, provid
    ```
 
 3. **Docker Desktop** installed and running
+4. **Launch the Hadoop container first and the AI container after the Hadoop container has been launched to 100%.
 
 ### Quick Evaluation Commands
 
