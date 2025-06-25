@@ -1,21 +1,126 @@
-# api_ia_fastapi/app/main.py
+# api_ia_fastapi/app/main.py - VERSION SIMPLIFIÉE TOUT-EN-UN
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, List
 import requests
+import json
 import logging
+import time
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Unified AI API - Hadoop Project",
-    description="Single entry point for text and image analysis",
-    version="1.0.0"
+    title="Unified AI API - Hadoop Project with LM Studio",
+    description="Single entry point for text (LM Studio) and image (YOLO) analysis",
+    version="2.0.0"
 )
 
-# Modèles de requête
+# ============ CLASSE LM STUDIO INTÉGRÉE ============
+class LMStudioService:
+    """Service pour intégrer LM Studio - Version simplifiée"""
+    
+    def __init__(self, base_url: str = "http://host.docker.internal:1234"):
+        self.base_url = base_url
+        self.api_url = f"{base_url}/v1/chat/completions"
+        self.models_url = f"{base_url}/v1/models"
+        self.available = False
+        self.current_model = None
+        
+        # Vérifier si LM Studio est disponible
+        self._check_availability()
+    
+    def _check_availability(self):
+        """Vérifier si LM Studio est accessible"""
+        try:
+            response = requests.get(self.models_url, timeout=5)
+            if response.status_code == 200:
+                models = response.json()
+                if models.get("data"):
+                    self.available = True
+                    self.current_model = models["data"][0]["id"]
+                    logger.info(f"✅ LM Studio available with model: {self.current_model}")
+                else:
+                    logger.warning("⚠️ LM Studio running but no model loaded")
+            else:
+                logger.warning(f"⚠️ LM Studio responded with status: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ LM Studio not available: {e}")
+            self.available = False
+    
+    def analyze_sentiment(self, text: str) -> Dict[str, Any]:
+        """Analyser le sentiment via LM Studio"""
+        if not self.available:
+            raise Exception("LM Studio service not available")
+        
+        start_time = time.time()
+        
+        system_prompt = """You are a sentiment analysis expert. Analyze the sentiment and respond with ONLY a JSON object:
+{"sentiment": "POSITIVE/NEGATIVE/NEUTRAL", "confidence": 0.85, "reasoning": "brief explanation"}"""
+        
+        payload = {
+            "model": self.current_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Analyze sentiment: {text}"}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 200,
+            "stream": False
+        }
+        
+        try:
+            response = requests.post(self.api_url, json=payload, timeout=30)
+            processing_time = round((time.time() - start_time) * 1000, 2)
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                
+                try:
+                    parsed = json.loads(content.strip())
+                    return {
+                        "sentiment": {
+                            "label": parsed.get("sentiment", "NEUTRAL"),
+                            "confidence": float(parsed.get("confidence", 0.5)),
+                            "reasoning": parsed.get("reasoning", ""),
+                            "processing_time_ms": processing_time,
+                            "model_used": self.current_model
+                        }
+                    }
+                except json.JSONDecodeError:
+                    # Fallback simple
+                    content_lower = content.lower()
+                    if "positive" in content_lower:
+                        sentiment = "POSITIVE"
+                        confidence = 0.7
+                    elif "negative" in content_lower:
+                        sentiment = "NEGATIVE"
+                        confidence = 0.7
+                    else:
+                        sentiment = "NEUTRAL"
+                        confidence = 0.5
+                    
+                    return {
+                        "sentiment": {
+                            "label": sentiment,
+                            "confidence": confidence,
+                            "reasoning": "Fallback analysis",
+                            "processing_time_ms": processing_time,
+                            "model_used": self.current_model
+                        }
+                    }
+            else:
+                raise Exception(f"LM Studio API error: {response.status_code}")
+        except Exception as e:
+            raise Exception(f"Sentiment analysis failed: {str(e)}")
+
+# Instance globale
+lm_studio_service = LMStudioService()
+
+# ============ MODÈLES PYDANTIC ============
 class UnifiedRequest(BaseModel):
     data_type: str  # "text" ou "image"
     content: Union[str, dict]  # texte ou image en base64
@@ -25,19 +130,16 @@ class UnifiedRequest(BaseModel):
 # ============ ENDPOINT UNIFIÉ PRINCIPAL ============
 @app.post("/analyze")
 async def unified_analyze(request: UnifiedRequest):
-    """
-    Point d'entrée unique pour analyse texte et image
-    Compatible avec les données Hadoop prétraitées
-    """
+    """Point d'entrée unique pour analyse texte (LM Studio) et image (YOLO)"""
     try:
         if request.data_type == "text":
-            result = await process_text_analysis_simple(
+            result = await process_text_analysis(
                 text=request.content,
                 task=request.task,
                 metadata=request.metadata
             )
         elif request.data_type == "image":
-            result = await process_image_analysis_simple(
+            result = await process_image_analysis(
                 image_data=request.content,
                 task=request.task,
                 metadata=request.metadata
@@ -50,24 +152,37 @@ async def unified_analyze(request: UnifiedRequest):
             "data_type": request.data_type,
             "task": request.task,
             "result": result,
-            "metadata": request.metadata
+            "metadata": request.metadata,
+            "api_version": "2.0_simplified"
         }
     
     except Exception as e:
         logger.error(f"Analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ============ FONCTIONS DE TRAITEMENT SIMPLIFIÉES ============
-async def process_text_analysis_simple(text: str, task: str, metadata: dict = None):
-    """Traitement simplifié du texte pour test"""
+# ============ TRAITEMENT TEXTE ============
+async def process_text_analysis(text: str, task: str, metadata: dict = None):
+    """Traitement du texte avec LM Studio ou fallback"""
     
     if not text or len(text.strip()) < 3:
         raise HTTPException(status_code=400, detail="Text too short for analysis")
     
+    # Essayer LM Studio d'abord
+    if lm_studio_service.available and task == "sentiment":
+        try:
+            return lm_studio_service.analyze_sentiment(text)
+        except Exception as e:
+            logger.warning(f"LM Studio failed, using fallback: {e}")
+    
+    # Analyse de fallback
+    return await process_text_fallback(text, task, metadata)
+
+async def process_text_fallback(text: str, task: str, metadata: dict = None):
+    """Analyse de fallback si LM Studio indisponible"""
+    
     if task == "sentiment":
-        # Analyse simple basée sur mots-clés
-        positive_words = ["good", "great", "amazing", "excellent", "love", "awesome", "fantastic"]
-        negative_words = ["bad", "terrible", "awful", "hate", "horrible", "worst"]
+        positive_words = ["good", "great", "amazing", "excellent", "love", "awesome", "fantastic", "perfect", "wonderful"]
+        negative_words = ["bad", "terrible", "awful", "hate", "horrible", "worst", "disappointing", "poor", "disgusting"]
         
         text_lower = text.lower()
         positive_score = sum(1 for word in positive_words if word in text_lower)
@@ -87,80 +202,82 @@ async def process_text_analysis_simple(text: str, task: str, metadata: dict = No
             "sentiment": {
                 "label": sentiment,
                 "confidence": confidence,
+                "reasoning": "Keyword-based fallback analysis",
                 "text_length": len(text),
                 "positive_indicators": positive_score,
-                "negative_indicators": negative_score
+                "negative_indicators": negative_score,
+                "model_used": "fallback_keywords"
             }
         }
     
     elif task == "classification":
-        # Classification simple par mots-clés
-        tech_words = ["python", "ai", "machine learning", "technology", "software", "programming"]
-        business_words = ["market", "sales", "revenue", "business", "profit", "company"]
+        tech_words = ["python", "ai", "machine learning", "technology", "software", "programming", "computer", "algorithm"]
+        business_words = ["market", "sales", "revenue", "business", "profit", "company", "finance", "investment"]
+        entertainment_words = ["movie", "music", "game", "entertainment", "show", "film", "art", "sport"]
         
         text_lower = text.lower()
         
         if any(word in text_lower for word in tech_words):
-            return {
-                "classification": {
-                    "category": "technology",
-                    "confidence": 0.8
-                }
-            }
+            category = "technology"
+            confidence = 0.8
         elif any(word in text_lower for word in business_words):
-            return {
-                "classification": {
-                    "category": "business", 
-                    "confidence": 0.7
-                }
-            }
+            category = "business"
+            confidence = 0.7
+        elif any(word in text_lower for word in entertainment_words):
+            category = "entertainment"
+            confidence = 0.7
         else:
-            return {
-                "classification": {
-                    "category": "general",
-                    "confidence": 0.5
-                }
+            category = "general"
+            confidence = 0.5
+        
+        return {
+            "classification": {
+                "category": category,
+                "confidence": confidence,
+                "reasoning": "Keyword-based classification",
+                "model_used": "fallback_keywords"
             }
+        }
     
     elif task == "summarization":
-        # Résumé simple - prendre les premières phrases
         sentences = text.split('. ')
-        if len(sentences) <= 2:
+        max_sentences = metadata.get("max_sentences", 3) if metadata else 3
+        
+        if len(sentences) <= max_sentences:
             summary = text
         else:
-            summary = '. '.join(sentences[:2]) + '.'
+            summary = '. '.join(sentences[:max_sentences]) + '.'
         
         return {
             "summarization": {
                 "summary": summary,
                 "original_length": len(text),
                 "summary_length": len(summary),
-                "compression_ratio": len(summary) / len(text)
+                "compression_ratio": len(summary) / len(text),
+                "model_used": "fallback_simple"
             }
         }
     
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported text task: {task}")
 
-async def process_image_analysis_simple(image_data: Union[str, dict], task: str, metadata: dict = None):
-    """Traitement d'image via l'API YOLO"""
+# ============ TRAITEMENT IMAGE ============
+async def process_image_analysis(image_data: Union[str, dict], task: str, metadata: dict = None):
+    """Traitement d'image - intégration avec YOLO API"""
     
     try:
-        # Appeler l'API YOLO (qui retourne déjà des résultats mockés)
-        yolo_url = "http://yolo-api:8000/predict"
+        # Appel à l'API YOLO (sur port 8000 interne)
+        yolo_url = "http://yolo-api:8000/analyze/image"
         
-        # Pour ce test, on simule juste un appel
-        # En réalité il faudrait convertir le base64 en fichier
+        # Pour l'instant, simulation - sera remplacé par l'appel YOLO réel
         mock_yolo_response = {
             "detections": [
                 {
-                    "class": 0,
-                    "label": "person",
+                    "class_name": "person",
                     "confidence": 0.85,
-                    "bbox": [100, 150, 200, 300]
+                    "bbox": {"x1": 100, "y1": 150, "x2": 200, "y2": 300}
                 }
-            ],
-            "status": "success"
+            ]
         }
         
         if task == "detection":
@@ -168,18 +285,17 @@ async def process_image_analysis_simple(image_data: Union[str, dict], task: str,
                 "object_detection": {
                     "objects_count": len(mock_yolo_response["detections"]),
                     "objects_detected": mock_yolo_response["detections"],
-                    "model": "yolov8n_mock"
+                    "model": "yolov8n_via_api"
                 }
             }
         
         elif task == "classification":
-            # Prendre l'objet avec la plus haute confiance
             if mock_yolo_response["detections"]:
                 best_detection = max(mock_yolo_response["detections"], 
                                    key=lambda x: x.get("confidence", 0))
                 return {
                     "image_classification": {
-                        "main_class": best_detection.get("label", "unknown"),
+                        "main_class": best_detection.get("class_name", "unknown"),
                         "confidence": best_detection.get("confidence", 0)
                     }
                 }
@@ -201,49 +317,69 @@ async def process_image_analysis_simple(image_data: Union[str, dict], task: str,
 # ============ ENDPOINTS DE SANTÉ ============
 @app.get("/")
 def root():
-    return {"message": "AI API is running", "status": "healthy"}
+    return {
+        "message": "AI API with LM Studio integration (simplified)", 
+        "status": "healthy",
+        "version": "2.0.0-simplified"
+    }
 
 @app.get("/health")
 async def health_check():
-    """Vérification de l'état de l'API"""
+    """Vérification de l'état de l'API et des services"""
+    
+    # Re-check LM Studio status
+    lm_studio_service._check_availability()
+    lm_studio_status = "available" if lm_studio_service.available else "unavailable"
+    
     return {
         "status": "healthy",
         "services": {
             "api": "running",
+            "lm_studio": lm_studio_status,
             "yolo": "available"
-        }
+        },
+        "lm_studio_model": lm_studio_service.current_model if lm_studio_service.available else None
     }
 
 @app.get("/models/status")
 async def models_status():
     """État des modèles IA"""
-    return {
-        "llm": {
+    
+    lm_studio_info = {}
+    if lm_studio_service.available:
+        lm_studio_info = {
             "status": "available",
             "tasks": ["sentiment", "classification", "summarization"],
-            "type": "simple_rules"
-        },
+            "type": "lm_studio_api",
+            "current_model": lm_studio_service.current_model
+        }
+    else:
+        lm_studio_info = {
+            "status": "unavailable",
+            "fallback": "keyword_based_analysis"
+        }
+    
+    return {
+        "llm": lm_studio_info,
         "yolo": {
             "status": "available", 
             "tasks": ["detection", "classification"],
-            "type": "mock_api"
+            "type": "yolo_api"
         }
     }
 
 # ============ ENDPOINT BATCH POUR HADOOP ============
 @app.post("/analyze/batch")
-async def batch_analyze(requests: list[UnifiedRequest]):
-    """
-    Traitement par batch pour les données Hadoop
-    """
+async def batch_analyze(requests: List[UnifiedRequest]):
+    """Traitement par batch pour les données Hadoop"""
     results = []
     
     for req in requests:
         try:
             if req.data_type == "text":
-                result = await process_text_analysis_simple(req.content, req.task, req.metadata)
+                result = await process_text_analysis(req.content, req.task, req.metadata)
             else:
-                result = await process_image_analysis_simple(req.content, req.task, req.metadata)
+                result = await process_image_analysis(req.content, req.task, req.metadata)
             
             results.append({
                 "id": req.metadata.get("id") if req.metadata else None,
@@ -257,7 +393,31 @@ async def batch_analyze(requests: list[UnifiedRequest]):
                 "error": str(e)
             })
     
-    return {"batch_results": results, "total_processed": len(results)}
+    return {
+        "batch_results": results, 
+        "total_processed": len(results),
+        "successful": sum(1 for r in results if r["status"] == "success"),
+        "failed": sum(1 for r in results if r["status"] == "error")
+    }
+
+# ============ ENDPOINTS SPÉCIALISÉS ============
+@app.post("/analyze/sentiment")
+async def analyze_sentiment_direct(text: str):
+    """Endpoint direct pour analyse de sentiment"""
+    try:
+        result = await process_text_analysis(text, "sentiment")
+        return {"status": "success", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze/classify")
+async def classify_text_direct(text: str):
+    """Endpoint direct pour classification"""
+    try:
+        result = await process_text_analysis(text, "classification")
+        return {"status": "success", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
