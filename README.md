@@ -22,7 +22,7 @@ This repository contains the AI component of our **Hadoop & AI Project**, provid
    
    # Grant execution rights to scripts
    chmod +x scripts/*.sh
-   chmod +x *.sh
+   chmod +x *.sh deploy.sh
    
    # For Windows, if permission issues persist :
    git config core.filemode false
@@ -36,13 +36,13 @@ This repository contains the AI component of our **Hadoop & AI Project**, provid
 # 1. Clone and configure the project
 git clone https://github.com/data-mining-ia-89/psychic-pancake.git
 cd psychic-pancake
-chmod +x scripts/*.sh
+chmod +x deploy.sh
 
 # 2. Start all services
-docker-compose up -d
+./deploy.sh
 
 # 3. Verify deployment
-./scripts/verify-deployment.sh
+./deploy.sh --status
 
 # 4. Test AI API
 curl -X POST "http://localhost:8001/analyze" \
@@ -98,13 +98,7 @@ A comprehensive AI service that exposes:
                     └─────────────────┘
 ```
 
-## 🏛️ Detailed Architecture
-
-### System Overview
-
-Our AI API follows a **microservices architecture** with containerized deployment, designed for scalability, maintainability, and seamless integration with Hadoop ecosystems.
-
-### Technical Stack
+## 🏛️ Technical Stack
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
@@ -117,414 +111,7 @@ Our AI API follows a **microservices architecture** with containerized deploymen
 | **API Documentation** | OpenAPI/Swagger | Interactive documentation |
 | **Monitoring** | Custom metrics + Health checks | System observability |
 
-### Deployment Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Docker Host Environment                  │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Nginx     │  │  AI API     │  │    YOLO Server      │ │
-│  │(Load Bal.)  │  │  (FastAPI)  │  │    (FastAPI)        │ │
-│  │Port: 80     │  │Port: 8001   │  │   Port: 8002        │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-│         │                │                    │            │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Model     │  │   Model     │  │    Shared Volume    │ │
-│  │  Storage    │  │   Cache     │  │   (/app/models)     │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │  Hadoop     │  │   Spark     │  │      HDFS           │ │
-│  │ NameNode    │  │   Driver    │  │   DataNode          │ │
-│  │Port: 9870   │  │Port: 4040   │  │   Port: 9864        │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Component Architecture
-
-#### 1. API Gateway Layer (FastAPI)
-
-```python
-# Main API structure
-api_ia_fastapi/
-├── app/
-│   ├── main.py              # FastAPI application entry
-│   ├── routers/             # API route handlers
-│   │   ├── analyze.py       # Text analysis endpoints
-│   │   ├── models.py        # Model management endpoints
-│   │   └── health.py        # Health check endpoints
-│   ├── services/            # Business logic layer
-│   │   ├── sentiment_service.py
-│   │   ├── comparison_service.py
-│   │   └── batch_service.py
-│   ├── models/              # AI model implementations
-│   │   ├── finetuned_model.py
-│   │   ├── lm_studio_client.py
-│   │   └── model_manager.py
-│   └── utils/               # Utility functions
-│       ├── validators.py
-│       ├── formatters.py
-│       └── config.py
-```
-
-#### 2. Computer Vision Service (YOLO)
-
-```python
-yolo_server/
-├── app/
-│   ├── main.py              # YOLO FastAPI server
-│   ├── models/              # YOLO model loading
-│   │   └── yolo_detector.py
-│   ├── services/            # Image processing services
-│   │   ├── detection_service.py
-│   │   └── batch_processor.py
-│   └── utils/               # Image utilities
-│       ├── image_preprocessor.py
-│       └── result_formatter.py
-```
-
-#### 3. Hadoop Integration Layer
-
-```python
-hadoop_integration/
-├── spark_jobs/              # Spark job implementations
-│   ├── sentiment_analysis_job.py
-│   ├── batch_image_processing.py
-│   └── data_pipeline.py
-├── hdfs_utils/              # HDFS interaction utilities
-│   ├── file_manager.py
-│   └── data_loader.py
-└── connectors/              # External system connectors
-    ├── hadoop_connector.py
-    └── api_client.py
-```
-
-### Data Flow Architecture
-
-#### 1. Real-time Analysis Flow
-
-```
-┌──────────────┐    HTTP POST     ┌─────────────┐
-│   Client     │ ──────────────► │  API Gateway│
-│ Application  │                 │  (FastAPI)  │
-└──────────────┘                 └─────────────┘
-                                         │
-                                         ▼
-                                 ┌─────────────┐
-                                 │   Request   │
-                                 │ Validation  │
-                                 └─────────────┘
-                                         │
-                         ┌───────────────┼───────────────┐
-                         ▼               ▼               ▼
-                ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-                │    Text     │ │    Image    │ │   Batch     │
-                │  Analysis   │ │  Analysis   │ │ Processing  │
-                └─────────────┘ └─────────────┘ └─────────────┘
-                         │               │               │
-                         ▼               ▼               ▼
-                ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-                │ DistilBERT  │ │  YOLO API   │ │   Hadoop    │
-                │   Model     │ │   Service   │ │ Integration │
-                └─────────────┘ └─────────────┘ └─────────────┘
-                         │               │               │
-                         └───────────────┼───────────────┘
-                                         ▼
-                                 ┌─────────────┐
-                                 │  Response   │
-                                 │ Formatting  │
-                                 └─────────────┘
-```
-
-#### 2. Hadoop Batch Processing Flow
-
-```
-┌─────────────┐     Spark Job      ┌─────────────┐
-│    HDFS     │ ──────────────────► │   Spark     │
-│   Data      │                    │   Driver    │
-│  Storage    │                    └─────────────┘
-└─────────────┘                            │
-       ▲                                   ▼
-       │                           ┌─────────────┐
-       │                           │   Data      │
-       │                           │Partitioning │
-       │                           └─────────────┘
-       │                                   │
-       │                           ┌───────┼───────┐
-       │                           ▼       ▼       ▼
-       │                    ┌─────────────────────────┐
-       │                    │    Parallel Workers     │
-       │                    │  ┌─────┐ ┌─────┐ ┌─────┐│
-       │                    │  │ W1  │ │ W2  │ │ W3  ││
-       │                    │  └─────┘ └─────┘ └─────┘│
-       │                    └─────────────────────────┘
-       │                               │
-       │                               ▼
-       │                    ┌─────────────────────────┐
-       │                    │   HTTP Requests to      │
-       │                    │     AI API Service      │
-       │                    └─────────────────────────┘
-       │                               │
-       │                               ▼
-       │                    ┌─────────────────────────┐
-       │                    │    Results Collection   │
-       │                    │     and Aggregation     │
-       │                    └─────────────────────────┘
-       │                               │
-       └───────────────────────────────┘
-              Write Results
-```
-
-#### 3. Model Comparison Flow
-
-```
-┌──────────────┐    Analysis      ┌─────────────┐
-│   Request    │ ──────────────► │ API Gateway │
-│   (with      │                 │             │
-│comparative   │                 └─────────────┘
-│preference)   │                         │
-└──────────────┘                         ▼
-                                ┌─────────────┐
-                                │   Route to  │
-                                │ Comparison  │
-                                │   Service   │
-                                └─────────────┘
-                                         │
-                         ┌───────────────┼───────────────┐
-                         ▼               ▼               ▼
-                ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-                │  Fine-tuned │ │  LM Studio  │ │   Baseline  │
-                │    Model    │ │    Model    │ │    Model    │
-                └─────────────┘ └─────────────┘ └─────────────┘
-                         │               │               │
-                         └───────────────┼───────────────┘
-                                         ▼
-                                ┌─────────────┐
-                                │  Results    │
-                                │ Comparison  │
-                                │& Metrics    │
-                                └─────────────┘
-```
-
-### Service Communication Patterns
-
-#### 1. Synchronous Communication
-
-```yaml
-# Direct API calls between services
-AI_API_Service:
-  - calls: YOLO_Service
-  - protocol: HTTP REST
-  - timeout: 30s
-  - retry_policy: 3_attempts
-
-YOLO_Service:
-  - responds_to: AI_API_Service
-  - protocol: HTTP REST
-  - max_concurrent: 10_requests
-```
-
-#### 2. Asynchronous Processing
-
-```yaml
-# Batch processing workflow
-Hadoop_Spark_Job:
-  - triggers: Batch_Analysis
-  - protocol: HTTP POST
-  - batch_size: 1000_records
-  - parallel_workers: 4
-  
-AI_API_Service:
-  - processes: Batch_Requests
-  - queue_size: 100_requests
-  - processing_timeout: 300s
-```
-
-### Security Architecture
-
-#### 1. Network Security
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Security Layers                       │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Nginx     │  │   Docker    │  │      Firewall       │ │
-│  │  (Reverse   │  │  Network    │  │      Rules          │ │
-│  │   Proxy)    │  │ Isolation   │  │                     │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │    Input    │  │    Rate     │  │     Model           │ │
-│  │ Validation  │  │  Limiting   │  │   Integrity         │ │
-│  │   & Sanit.  │  │             │  │    Checks           │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### 2. Data Security
-
-```python
-# Security implementation examples
-security_measures = {
-    "input_validation": {
-        "text_sanitization": "Remove malicious content",
-        "file_type_validation": "Accept only safe image formats",
-        "size_limits": "Max 10MB per request"
-    },
-    "model_security": {
-        "model_signing": "Verify model integrity",
-        "access_control": "Role-based model access",
-        "audit_logging": "Track all model usage"
-    },
-    "api_security": {
-        "rate_limiting": "100 requests/minute",
-        "authentication": "API key validation",
-        "https_only": "TLS 1.3 encryption"
-    }
-}
-```
-
-### Scalability Architecture
-
-#### 1. Horizontal Scaling
-
-```yaml
-# Docker Compose scaling configuration
-services:
-  ai-api:
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-  
-  yolo-api:
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 3G
-```
-
-#### 2. Load Balancing Strategy
-
-```
-                    ┌─────────────┐
-                    │   Nginx     │
-                    │Load Balancer│
-                    └─────────────┘
-                            │
-                   ┌────────┼────────┐
-                   ▼        ▼        ▼
-            ┌─────────┐ ┌─────────┐ ┌─────────┐
-            │AI API #1│ │AI API #2│ │AI API #3│
-            └─────────┘ └─────────┘ └─────────┘
-                   │        │        │
-                   └────────┼────────┘
-                            ▼
-                   ┌─────────────────┐
-                   │  Shared Model   │
-                   │     Storage     │
-                   └─────────────────┘
-```
-
-### Performance Architecture
-
-#### 1. Caching Strategy
-
-```python
-# Multi-level caching implementation
-caching_layers = {
-    "L1_Memory_Cache": {
-        "type": "In-process cache",
-        "size": "512MB",
-        "ttl": "1 hour",
-        "use_case": "Recent model predictions"
-    },
-    "L2_Redis_Cache": {
-        "type": "Distributed cache",
-        "size": "2GB",
-        "ttl": "24 hours", 
-        "use_case": "Model artifacts, common queries"
-    },
-    "L3_Model_Cache": {
-        "type": "Persistent storage",
-        "size": "10GB",
-        "ttl": "7 days",
-        "use_case": "Pre-trained models, datasets"
-    }
-}
-```
-
-#### 2. Performance Optimization
-
-```yaml
-# Performance configuration
-optimization_settings:
-  model_loading:
-    lazy_loading: true
-    model_pooling: 2_instances
-    memory_mapping: true
-  
-  inference:
-    batch_processing: true
-    gpu_acceleration: auto_detect
-    mixed_precision: fp16
-  
-  api_response:
-    compression: gzip
-    streaming: large_responses
-    connection_pooling: true
-```
-
-### Monitoring Architecture
-
-#### 1. Observability Stack
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   Monitoring & Observability               │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Metrics   │  │    Logs     │  │       Traces        │ │
-│  │ Collection  │  │Aggregation  │  │    Distributed      │ │
-│  │(Prometheus) │  │   (ELK)     │  │     (Jaeger)        │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Health    │  │ Performance │  │      Business       │ │
-│  │   Checks    │  │  Dashboards │  │     Metrics         │ │
-│  │             │  │ (Grafana)   │  │                     │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### 2. Alerting System
-
-```python
-# Alerting configuration
-alerts = {
-    "critical": {
-        "api_down": "Service unavailable > 30s",
-        "memory_usage": "Memory usage > 90%",
-        "error_rate": "Error rate > 5%"
-    },
-    "warning": {
-        "response_time": "Response time > 1000ms",
-        "model_accuracy": "Accuracy drop > 10%",
-        "disk_space": "Disk usage > 80%"
-    }
-}
-```
-
-This architecture ensures **high availability**, **scalability**, and **maintainability** while providing seamless integration between AI services and Hadoop infrastructure.
-
-## ⚡ Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -542,8 +129,7 @@ git clone https://github.com/data-mining-ia-89/psychic-pancake.git
 cd psychic-pancake
 
 # Configure permissions (MANDATORY)
-chmod +x scripts/*.sh
-chmod +x *.sh
+chmod +x deploy.sh
 
 # Verify Docker
 docker --version
@@ -553,8 +139,11 @@ docker-compose --version
 ### 2. Deploy AI API
 
 ```bash
-# Start all services
-docker-compose up -d
+# Complete deployment with fine-tuning
+./deploy.sh
+
+# Or deploy without fine-tuning
+./deploy.sh --no-finetune
 
 # Check container status
 docker ps
@@ -567,20 +156,20 @@ docker-compose logs -f
 
 ```bash
 # Automatic verification script
-./scripts/verify-deployment.sh
+./deploy.sh --status
 
 # Manual verifications
 curl http://localhost:8001/health
 curl http://localhost:8002/health
 
-# Hadoop web interface
+# Hadoop web interface (if running)
 # Open http://localhost:9870 in browser
 ```
 
 ### 4. Test the API
 
 ```bash
-# Test sentiment analysis
+# Test sentiment analysis with fine-tuned model
 curl -X POST "http://localhost:8001/analyze" \
   -H "Content-Type: application/json" \
   -d '{
@@ -590,7 +179,7 @@ curl -X POST "http://localhost:8001/analyze" \
     "model_preference": "finetuned"
   }'
 
-# Test image analysis (with test image)
+# Test image analysis (requires image file)
 curl -X POST "http://localhost:8002/predict" \
   -F "image=@test_data/sample_image.jpg"
 
@@ -631,12 +220,11 @@ curl http://localhost:8001/models/comparison
 
 ```bash
 # Run complete test suite
-./scripts/run-evaluation-tests.sh
+./deploy.sh --test
 
 # Specific tests
-python -m pytest tests/test_evaluation.py -v
-python tests/test_hadoop_integration.py
-python tests/test_model_performance.py
+python -m pytest tests/ -v
+python test_yolo.py
 ```
 
 ## 🧠 AI Models
@@ -722,6 +310,9 @@ POST /predict/batch
 
 # Model information
 GET /model/info
+
+# Unified image analysis
+POST /analyze/image?task=detection
 ```
 
 ## 🔬 Fine-tuning Process
@@ -729,8 +320,11 @@ GET /model/info
 ### 1. Run Fine-tuning
 
 ```bash
-# Execute fine-tuning pipeline
-./scripts/run-finetuning.sh
+# Execute fine-tuning via deployment script
+./deploy.sh --finetune
+
+# Or run fine-tuning only
+./deploy.sh --finetune
 ```
 
 ### 2. Training Process
@@ -747,7 +341,7 @@ The fine-tuning pipeline:
 ### 3. Custom Training Data
 
 ```python
-# Example training data structure
+# Example training data structure (see api_ia_fastapi/app/models/llm_finetuning.py)
 training_data = [
     ("This product is amazing!", 2),  # Positive
     ("Terrible quality", 0),          # Negative  
@@ -767,9 +361,9 @@ Hadoop HDFS → Spark → AI API → Processed Results → HDFS
 
 **From Hadoop to AI**:
 ```python
-# Example Spark job calling AI API
+# Example Spark job calling AI API (api_ia_fastapi/app/utils/hadoop_formatter.py)
 response = requests.post(
-    "http://ai-api-unified:8001/analyze/batch",
+    "http://ai-api:8001/analyze/batch",
     json=batch_data
 )
 ```
@@ -795,10 +389,10 @@ response = requests.post(
 
 ```bash
 # Test Hadoop connectivity
-docker exec ai-api-unified curl http://namenode:9870
+./deploy.sh --integration
 
 # Run integration test
-python spark-jobs/test_hadoop_ia_integration.py
+docker exec ai-api-unified curl http://namenode:9870
 ```
 
 ## 🎨 Model Comparison
@@ -833,6 +427,7 @@ Results show fine-tuned model advantages:
 ```yaml
 ai-api:
   build: .
+  container_name: ai-api-unified
   ports:
     - "8001:8001"
   environment:
@@ -846,6 +441,7 @@ ai-api:
 ```yaml
 yolo-api:
   build: ./yolo_server
+  container_name: yolo-api-server
   ports:
     - "8002:8000"
   volumes:
@@ -868,23 +464,28 @@ pytest tests/ --cov=app --cov-report=html
 
 ```bash
 # Test AI model loading
-python -m app.models.test_loading
-
-# Test Hadoop integration
-python spark-jobs/test_hadoop_ia_integration.py
+docker exec ai-api-unified python -c "
+from api_ia_fastapi.app.models.llm_finetuning_production import run_complete_finetuning_pipeline
+run_complete_finetuning_pipeline()
+"
 
 # Test YOLO service
 python test_yolo.py
+
+# Test Hadoop integration
+./deploy.sh --integration
 ```
 
 ### Load Testing
 
 ```bash
-# Performance testing with k6
-k6 run performance-test.js
+# Complete test suite
+./deploy.sh --test
 
-# Batch processing test
-python test_batch_processing.py
+# API endpoint tests
+curl -X POST "http://localhost:8001/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"data_type": "text", "content": "Test message", "task": "sentiment"}'
 ```
 
 ## 📊 Monitoring & Logging
@@ -900,6 +501,9 @@ curl http://localhost:8001/models/status
 
 # YOLO health  
 curl http://localhost:8002/health
+
+# Complete status check
+./deploy.sh --status
 ```
 
 ### Metrics Exposed
@@ -913,7 +517,7 @@ curl http://localhost:8002/health
 ### Logging
 
 ```bash
-# View API logs
+# View AI logs
 docker logs ai-api-unified
 
 # View YOLO logs
@@ -921,6 +525,9 @@ docker logs yolo-api-server
 
 # Real-time monitoring
 docker logs -f ai-api-unified
+
+# Follow all logs
+docker-compose logs -f
 ```
 
 ## 🔧 Configuration
@@ -928,7 +535,7 @@ docker logs -f ai-api-unified
 ### Model Configuration
 
 ```python
-# api_ia_fastapi/app/config.py
+# Configuration in api_ia_fastapi/app/main.py
 FINETUNED_MODEL_PATH = "./models/finetuned_sentiment_model"
 LM_STUDIO_URL = "http://host.docker.internal:1234"
 YOLO_API_URL = "http://yolo-api:8000"
@@ -995,21 +602,16 @@ docker-compose up -d --scale ai-api=3
 
 ## 📚 Advanced Features
 
-### Custom Model Training
-
-```bash
-# Train with your own data
-python -m app.models.custom_training --data /path/to/data
-
-# Export trained model
-python -m app.models.export_model --output /models/custom_model
-```
-
 ### YOLO Re-training
 
 ```bash
 # Re-train YOLO with Hadoop images
-python -m app.models.yolo_retraining --hdfs-path /data/images
+./deploy.sh --yolo-retrain
+
+# Or via API endpoint
+curl -X POST "http://localhost:8001/yolo/retrain/start" \
+  -H "Content-Type: application/json" \
+  -d '{"hdfs_images_path": "/data/images/scraped", "epochs": 50}'
 ```
 
 ### Batch Processing
@@ -1028,11 +630,11 @@ curl -X POST "http://localhost:8001/analyze/batch" \
 **Permission Errors (Windows)**:
 ```bash
 # In Git Bash
-chmod +x scripts/*.sh
+chmod +x deploy.sh
 git config core.filemode false
 
 # If issues persist
-git update-index --chmod=+x scripts/run-finetuning.sh
+git update-index --chmod=+x deploy.sh
 ```
 
 **Docker Won't Start**:
@@ -1041,11 +643,10 @@ git update-index --chmod=+x scripts/run-finetuning.sh
 docker info
 
 # Clean old containers
-docker-compose down
-docker system prune -f
+./deploy.sh --clean
 
-# Restart
-docker-compose up -d
+# Emergency cleanup
+./deploy.sh --emergency-clean
 ```
 
 **Ports Already in Use**:
@@ -1054,7 +655,6 @@ docker-compose up -d
 netstat -tulpn | grep :8001
 
 # Modify ports in docker-compose.yml if necessary
-# Example: "8003:8001" instead of "8001:8001"
 ```
 
 **AI Models Won't Load**:
@@ -1062,30 +662,24 @@ netstat -tulpn | grep :8001
 # Check disk space (models = ~2GB)
 df -h
 
-# Download models manually
-./scripts/download-models.sh
-
 # Check logs
-docker logs ai-api-unified
-```
+./deploy.sh --debug
 
-**Memory Issues**:
-```bash
-# Increase Docker Desktop memory to 6GB minimum
-# Settings > Resources > Advanced > Memory
-
-# Monitor usage
-docker stats
+# Restart services
+./deploy.sh --clean
 ```
 
 ### Debug Mode
 
 ```bash
 # Enable debug logging
-docker-compose -f docker-compose.debug.yml up -d
+./deploy.sh --debug
 
-# Interactive debugging
-docker exec -it ai-api-unified bash
+# Show troubleshooting guide
+./deploy.sh --troubleshoot
+
+# Generate diagnostic report
+./deploy.sh --diagnostic
 ```
 
 ## 📖 API Documentation
@@ -1094,6 +688,7 @@ docker exec -it ai-api-unified bash
 
 - **Swagger UI**: http://localhost:8001/docs
 - **ReDoc**: http://localhost:8001/redoc
+- **YOLO API Docs**: http://localhost:8002/docs
 
 ### Example Requests
 
@@ -1129,22 +724,40 @@ print(response.json())
 
 ```
 psychic-pancake/
-├── api_ia_fastapi/           # Main FastAPI application
+├── api_ia_fastapi/              # Main FastAPI application
 │   ├── app/
-│   │   ├── models/           # AI model implementations
-│   │   ├── services/         # Business logic services
-│   │   ├── utils/            # Utility functions
-│   │   └── main.py          # FastAPI app entry point
-├── yolo_server/             # YOLO computer vision service
-├── hadoop_integration/      # Hadoop-IA integration scripts
-├── tests/                   # Test suites
-├── scripts/                 # Deployment and utility scripts
-├── models/                  # Trained model storage
-├── test_data/              # Sample data for testing
-├── docs/                   # Additional documentation
-├── docker-compose.yml       # Service orchestration
-├── requirements.txt         # Python dependencies
-└── README.md               # This file
+│   │   ├── main.py             # FastAPI app entry point
+│   │   ├── models/             # AI model implementations
+│   │   │   ├── llm_finetuning.py
+│   │   │   └── llm_finetuning_production.py
+│   │   ├── services/           # Business logic services
+│   │   │   └── finetuned_llm_service.py
+│   │   ├── handlers/           # Request handlers
+│   │   │   ├── text_handler.py
+│   │   │   └── image_handler.py
+│   │   ├── endpoints/          # API endpoints
+│   │   │   └── yolo_retraining.py
+│   │   └── utils/              # Utility functions
+│   │       └── hadoop_formatter.py
+│   └── yolo_retraining/        # YOLO retraining pipeline
+│       └── complete_pipeline.py
+├── yolo_server/                 # YOLO computer vision service
+│   ├── main.py                 # YOLO FastAPI server
+│   ├── Dockerfile              # YOLO container config
+│   └── requirements.txt        # YOLO dependencies
+├── models/                      # Trained model storage
+│   └── finetuned_sentiment_model/
+│       └── training_results.json
+├── tests/                       # Test suites
+│   ├── __init__.py
+│   └── test_api.py
+├── scripts/                     # Deployment scripts
+├── docker-compose.yml          # Service orchestration
+├── Dockerfile                  # Main API container
+├── deploy.sh                   # Main deployment script
+├── test_yolo.py               # YOLO testing script
+├── requirements.txt           # Python dependencies
+└── README.md                  # This file
 ```
 
 ## 📋 Evaluation Checklist
@@ -1153,13 +766,13 @@ psychic-pancake/
 
 - [ ] Git Bash installed and configured
 - [ ] Docker Desktop running
-- [ ] Project cloned and permissions configured
-- [ ] Services deployed with `docker-compose up -d`
+- [ ] Project cloned and permissions configured (`chmod +x deploy.sh`)
+- [ ] Services deployed with `./deploy.sh`
 - [ ] API accessible at http://localhost:8001
-- [ ] Basic tests passed with `./scripts/verify-deployment.sh`
-- [ ] Fine-tuning executed successfully
+- [ ] Basic tests passed with `./deploy.sh --status`
+- [ ] Fine-tuning executed successfully (`./deploy.sh --finetune`)
 - [ ] Models compared and metrics displayed
-- [ ] Hadoop integration tested
+- [ ] Hadoop integration tested (`./deploy.sh --integration`)
 - [ ] Technical documentation complete
 
 ### Expected Deliverables
@@ -1193,16 +806,13 @@ This project demonstrates:
 
 ```bash
 # Install development dependencies
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 
 # Run tests
 pytest tests/
 
 # Code formatting
 black . && flake8 .
-
-# Pre-commit hooks
-pre-commit install
 ```
 
 ## 📄 License
@@ -1229,7 +839,7 @@ This project is part of an academic assignment and is intended for educational p
 
 1. Consult the [Troubleshooting](#-troubleshooting) section
 2. Check logs: `docker-compose logs`
-3. Run diagnostic script: `./scripts/diagnose-issues.sh`
+3. Run diagnostic script: `./deploy.sh --debug`
 4. Contact the team via [email/discord/etc.]
 
 ---
@@ -1243,11 +853,11 @@ This project is part of an academic assignment and is intended for educational p
 # 2. Quick deployment
 git clone <repository-url>
 cd psychic-pancake
-chmod +x scripts/*.sh
-docker-compose up -d
+chmod +x deploy.sh
+./deploy.sh
 
 # 3. Verification
-./scripts/verify-deployment.sh
+./deploy.sh --status
 
 # 4. Main test
 curl -X POST "http://localhost:8001/analyze" \
@@ -1255,6 +865,6 @@ curl -X POST "http://localhost:8001/analyze" \
   -d '{"data_type": "text", "content": "Amazing AI project!", "task": "sentiment"}'
 ```
 
-**Ready to power your AI workflows? Deploy with `docker-compose up -d` and start analyzing! 🤖**
+**Ready to power your AI workflows? Deploy with `./deploy.sh` and start analyzing! 🤖**
 
 **Ready for evaluation? Follow the instructions above and discover our complete AI solution! 🚀**
