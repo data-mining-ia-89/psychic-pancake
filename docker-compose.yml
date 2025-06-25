@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # ============ API IA UNIFIÉE ============
   ai-api:
     build: 
       context: .
@@ -12,23 +11,16 @@ services:
       - "8001:8001"
     environment:
       - PYTHONUNBUFFERED=1
-      - YOLO_API_URL=http://yolo-api:8000  # URL interne reste 8000
+      - YOLO_API_URL=http://yolo-api:8000
     volumes:
-      - ./models:/app/models  # Modèles persistants
-      - ./logs:/app/logs      # Logs persistants
+      - ./models:/app/models
+      - ./logs:/app/logs
     networks:
       - ai-network
     depends_on:
       - yolo-api
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
-  # ============ API YOLO SPÉCIALISÉE ============
   yolo-api:
     build:
       context: ./yolo_server
@@ -36,7 +28,7 @@ services:
     container_name: yolo-api-server
     hostname: yolo-api
     ports:
-      - "8002:8000"  # Port externe différent pour éviter conflit
+      - "8002:8000"
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
@@ -44,21 +36,8 @@ services:
     networks:
       - ai-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-# ============ VOLUMES PERSISTANTS ============
-volumes:
-  models_data:
-    driver: local
-  logs_data:
-    driver: local
-
-# ============ RÉSEAU ============
 networks:
   ai-network:
-    driver: bridge
+    external: true
+    name: hadoop-net  # Connecté au réseau Hadoop

@@ -18,6 +18,9 @@ app = FastAPI(
     version="2.0.0"
 )
 
+namenode_url = "http://namenode:9870"  # Nom du conteneur Hadoop
+
+
 # ============ CLASSE LM STUDIO INTÉGRÉE ============
 class LMStudioService:
     """Service pour intégrer LM Studio - Version simplifiée"""
